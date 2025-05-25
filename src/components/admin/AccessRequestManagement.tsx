@@ -34,23 +34,38 @@ export const AccessRequestManagement = () => {
 
   const fetchRequests = async () => {
     try {
-      const { data, error } = await supabase
+      // First, get the access requests with course data
+      const { data: requestsData, error: requestsError } = await supabase
         .from('course_access_requests')
         .select(`
           *,
-          course:courses(title, category),
-          profiles!inner(email, full_name)
+          course:courses(title, category)
         `)
         .order('requested_at', { ascending: false });
 
-      if (error) throw error;
-      
-      // Transform the data to match our interface
-      const transformedData = (data || []).map(item => ({
-        ...item,
-        course: item.course || null,
-        user_profile: item.profiles || null
-      }));
+      if (requestsError) throw requestsError;
+
+      // Then, get the user profiles separately
+      const userIds = requestsData?.map(req => req.user_id) || [];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, full_name')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combine the data
+      const transformedData = (requestsData || []).map(item => {
+        const userProfile = profilesData?.find(profile => profile.id === item.user_id);
+        return {
+          ...item,
+          course: item.course || null,
+          user_profile: userProfile ? {
+            email: userProfile.email,
+            full_name: userProfile.full_name
+          } : null
+        };
+      });
       
       setRequests(transformedData);
     } catch (error) {
