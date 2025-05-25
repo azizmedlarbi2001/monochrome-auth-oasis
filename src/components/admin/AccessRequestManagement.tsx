@@ -39,17 +39,17 @@ export const AccessRequestManagement = () => {
         .select(`
           *,
           course:courses(title, category),
-          user_profile:profiles(email, full_name)
+          profiles!inner(email, full_name)
         `)
         .order('requested_at', { ascending: false });
 
       if (error) throw error;
       
-      // Transform the data to ensure proper typing
+      // Transform the data to match our interface
       const transformedData = (data || []).map(item => ({
         ...item,
         course: item.course || null,
-        user_profile: item.user_profile || null
+        user_profile: item.profiles || null
       }));
       
       setRequests(transformedData);
