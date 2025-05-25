@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -50,8 +49,10 @@ export const MCQManagement = ({ lesson, onBack }: MCQManagementProps) => {
       // Transform the data to ensure options is a string array
       const transformedData = (data || []).map(item => ({
         ...item,
-        options: Array.isArray(item.options) ? item.options : []
-      }));
+        options: Array.isArray(item.options) 
+          ? item.options.filter((opt): opt is string => typeof opt === 'string')
+          : []
+      })) as MCQQuestion[];
       
       setQuestions(transformedData);
     } catch (error) {
