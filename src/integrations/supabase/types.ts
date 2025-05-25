@@ -9,6 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      course_access_requests: {
+        Row: {
+          admin_notes: string | null
+          course_id: string
+          id: string
+          message: string | null
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          course_id: string
+          id?: string
+          message?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          course_id?: string
+          id?: string
+          message?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_access_requests_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           category: string | null
@@ -47,27 +91,40 @@ export type Database = {
       }
       enrollments: {
         Row: {
+          access_request_id: string | null
           completed_at: string | null
           course_id: string
           enrolled_at: string
           id: string
+          status: string | null
           user_id: string
         }
         Insert: {
+          access_request_id?: string | null
           completed_at?: string | null
           course_id: string
           enrolled_at?: string
           id?: string
+          status?: string | null
           user_id: string
         }
         Update: {
+          access_request_id?: string | null
           completed_at?: string | null
           course_id?: string
           enrolled_at?: string
           id?: string
+          status?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "enrollments_access_request_id_fkey"
+            columns: ["access_request_id"]
+            isOneToOne: false
+            referencedRelation: "course_access_requests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "enrollments_course_id_fkey"
             columns: ["course_id"]

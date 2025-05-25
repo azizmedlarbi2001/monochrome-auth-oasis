@@ -2,9 +2,12 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen, Search } from 'lucide-react';
 
 export const UserDashboard = () => {
   const { user, isAdmin, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-white">
@@ -35,9 +38,27 @@ export const UserDashboard = () => {
             <h2 className="text-3xl font-bold text-black mb-4">
               Welcome back!
             </h2>
-            <p className="text-black text-lg">
-              You are successfully authenticated and logged into the system.
+            <p className="text-black text-lg mb-6">
+              Ready to continue your learning journey?
             </p>
+            
+            <div className="flex gap-4 mb-8">
+              <Button 
+                className="bg-black text-white hover:bg-gray-800 border-2 border-black"
+                onClick={() => navigate('/courses')}
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                Browse Courses
+              </Button>
+              <Button 
+                variant="outline"
+                className="border-black text-black hover:bg-gray-100"
+                onClick={() => navigate('/courses')}
+              >
+                <Search className="w-4 h-4 mr-2" />
+                Search Courses
+              </Button>
+            </div>
             
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="border-2 border-black p-6">
@@ -51,11 +72,11 @@ export const UserDashboard = () => {
                 <div className="border-2 border-black p-6">
                   <h3 className="text-xl font-bold text-black mb-2">Admin Access</h3>
                   <p className="text-black mb-4">
-                    You have administrative privileges to manage users and system settings.
+                    You have administrative privileges to manage courses and users.
                   </p>
                   <Button 
                     className="bg-black text-white hover:bg-gray-800 border-2 border-black"
-                    onClick={() => window.location.href = '/admin'}
+                    onClick={() => navigate('/admin')}
                   >
                     Go to Admin Panel
                   </Button>
