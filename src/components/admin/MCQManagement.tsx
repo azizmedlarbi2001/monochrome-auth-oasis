@@ -46,7 +46,14 @@ export const MCQManagement = ({ lesson, onBack }: MCQManagementProps) => {
         .eq('lesson_id', lesson.id);
 
       if (error) throw error;
-      setQuestions(data || []);
+      
+      // Transform the data to ensure options is a string array
+      const transformedData = (data || []).map(item => ({
+        ...item,
+        options: Array.isArray(item.options) ? item.options : []
+      }));
+      
+      setQuestions(transformedData);
     } catch (error) {
       console.error('Error fetching questions:', error);
       toast({
