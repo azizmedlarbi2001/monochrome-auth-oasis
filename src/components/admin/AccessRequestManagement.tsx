@@ -17,11 +17,11 @@ interface AccessRequest {
   course: {
     title: string;
     category: string;
-  };
+  } | null;
   user_profile: {
     email: string;
     full_name: string;
-  };
+  } | null;
 }
 
 export const AccessRequestManagement = () => {
@@ -40,12 +40,20 @@ export const AccessRequestManagement = () => {
         .select(`
           *,
           course:courses(title, category),
-          user_profile:profiles(email, full_name)
+          user_profile:profiles!course_access_requests_user_id_fkey(email, full_name)
         `)
         .order('requested_at', { ascending: false });
 
       if (error) throw error;
-      setRequests(data || []);
+      
+      // Transform the data to ensure proper typing
+      const transformedData = (data || []).map(item => ({
+        ...item,
+        course: item.course || null,
+        user_profile: item.user_profile || null
+      }));
+      
+      setRequests(transformedData);
     } catch (error) {
       console.error('Error fetching requests:', error);
       toast({
@@ -157,10 +165,12 @@ export const AccessRequestManagement = () => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-black">
                     <BookOpen className="w-4 h-4" />
-                    <span className="font-medium">{request.course?.title}</span>
-                    <Badge variant="outline" className="text-black border-black">
-                      {request.course?.category}
-                    </Badge>
+                    <span className="font-medium">{request.course?.title || 'Unknown Course'}</span>
+                    {request.course?.category && (
+                      <Badge variant="outline" className="text-black border-black">
+                        {request.course.category}
+                      </Badge>
+                    )}
                   </div>
                   
                   {request.message && (
