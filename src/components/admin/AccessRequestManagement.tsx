@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -40,7 +39,7 @@ export const AccessRequestManagement = () => {
         .select(`
           *,
           course:courses(title, category),
-          user_profile:profiles!course_access_requests_user_id_fkey(email, full_name)
+          user_profile:profiles(email, full_name)
         `)
         .order('requested_at', { ascending: false });
 
