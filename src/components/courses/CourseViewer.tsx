@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -135,7 +134,7 @@ export const CourseViewer = () => {
       }
 
       // Check if course is completed and needs rating
-      checkCourseCompletion(lessonsData, progressData || []);
+      checkCourseCompletion(lessonsData, progressData || [], enrollment);
     } catch (error) {
       console.error('Error fetching course data:', error);
       toast({
@@ -148,15 +147,30 @@ export const CourseViewer = () => {
     }
   };
 
-  const checkCourseCompletion = (lessonsData: Lesson[], progressData: LessonProgress[]) => {
+  const checkCourseCompletion = async (lessonsData: Lesson[], progressData: LessonProgress[], enrollment: any) => {
     if (lessonsData.length === 0) return;
 
     const allLessonsCompleted = lessonsData.every(lesson => 
       progressData.some(p => p.lesson_id === lesson.id && p.completed)
     );
 
-    if (allLessonsCompleted && !hasCourseRating) {
-      setShowCourseRatingModal(true);
+    if (allLessonsCompleted) {
+      // Mark enrollment as completed if not already marked
+      if (!enrollment.completed_at) {
+        try {
+          await supabase
+            .from('enrollments')
+            .update({ completed_at: new Date().toISOString() })
+            .eq('id', enrollment.id);
+        } catch (error) {
+          console.error('Error updating enrollment completion:', error);
+        }
+      }
+
+      // Show rating modal if user hasn't rated the course yet
+      if (!hasCourseRating) {
+        setShowCourseRatingModal(true);
+      }
     }
   };
 

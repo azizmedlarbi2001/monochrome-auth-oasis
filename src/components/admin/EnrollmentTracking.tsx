@@ -13,6 +13,7 @@ interface EnrollmentData {
   enrollment_count: number;
   completed_count: number;
   completion_rate: number;
+  total_lessons: number;
 }
 
 export const EnrollmentTracking = () => {
@@ -31,42 +32,93 @@ export const EnrollmentTracking = () => {
 
   const fetchEnrollmentData = async () => {
     try {
-      // Fetch courses with enrollment statistics
+      // Fetch courses with their lesson counts
       const { data: courses, error: coursesError } = await supabase
         .from('courses')
-        .select('id, title, category');
+        .select(`
+          id, 
+          title, 
+          category,
+          lessons(id)
+        `);
 
       if (coursesError) throw coursesError;
 
-      // Fetch enrollment data
+      // Fetch all enrollments
       const { data: enrollments, error: enrollmentsError } = await supabase
         .from('enrollments')
-        .select('course_id, completed_at');
+        .select('id, course_id, user_id, completed_at');
 
       if (enrollmentsError) throw enrollmentsError;
 
-      // Process data
-      const enrollmentStats = courses.map(course => {
+      // Fetch all lesson progress to calculate completions
+      const { data: lessonsProgress, error: progressError } = await supabase
+        .from('lesson_progress')
+        .select('user_id, lesson_id, completed, lesson:lessons(course_id)');
+
+      if (progressError) throw progressError;
+
+      // Process data for each course
+      const enrollmentStats = await Promise.all(courses.map(async (course) => {
         const courseEnrollments = enrollments.filter(e => e.course_id === course.id);
-        const completedEnrollments = courseEnrollments.filter(e => e.completed_at);
+        const totalLessons = course.lessons?.length || 0;
+        
+        // Calculate completed enrollments based on lesson progress
+        let completedEnrollments = 0;
+        const enrollmentsToUpdate = [];
+
+        for (const enrollment of courseEnrollments) {
+          if (totalLessons === 0) continue;
+
+          // Get user's progress for this course
+          const userProgress = lessonsProgress.filter(
+            p => p.lesson?.course_id === course.id && p.user_id === enrollment.user_id
+          );
+
+          const completedLessons = userProgress.filter(p => p.completed).length;
+          const isCompleted = completedLessons === totalLessons && totalLessons > 0;
+
+          if (isCompleted) {
+            completedEnrollments++;
+            
+            // Mark enrollment as completed if not already marked
+            if (!enrollment.completed_at) {
+              enrollmentsToUpdate.push({
+                id: enrollment.id,
+                completed_at: new Date().toISOString()
+              });
+            }
+          }
+        }
+
+        // Update enrollments that should be marked as completed
+        if (enrollmentsToUpdate.length > 0) {
+          for (const update of enrollmentsToUpdate) {
+            await supabase
+              .from('enrollments')
+              .update({ completed_at: update.completed_at })
+              .eq('id', update.id);
+          }
+        }
+
         const enrollmentCount = courseEnrollments.length;
-        const completedCount = completedEnrollments.length;
-        const completionRate = enrollmentCount > 0 ? (completedCount / enrollmentCount) * 100 : 0;
+        const completionRate = enrollmentCount > 0 ? (completedEnrollments / enrollmentCount) * 100 : 0;
 
         return {
           course_id: course.id,
           course_title: course.title,
           course_category: course.category,
           enrollment_count: enrollmentCount,
-          completed_count: completedCount,
+          completed_count: completedEnrollments,
           completion_rate: completionRate,
+          total_lessons: totalLessons,
         };
-      });
+      }));
 
       // Calculate total stats
       const totalCourses = courses.length;
       const totalEnrollments = enrollments.length;
-      const totalCompleted = enrollments.filter(e => e.completed_at).length;
+      const totalCompleted = enrollmentStats.reduce((sum, course) => sum + course.completed_count, 0);
       const averageCompletion = totalEnrollments > 0 ? (totalCompleted / totalEnrollments) * 100 : 0;
 
       setEnrollmentData(enrollmentStats);
@@ -146,6 +198,7 @@ export const EnrollmentTracking = () => {
                 <tr className="border-b-2 border-black">
                   <th className="text-left p-4 font-bold text-black">Course</th>
                   <th className="text-left p-4 font-bold text-black">Category</th>
+                  <th className="text-left p-4 font-bold text-black">Lessons</th>
                   <th className="text-left p-4 font-bold text-black">Enrollments</th>
                   <th className="text-left p-4 font-bold text-black">Completed</th>
                   <th className="text-left p-4 font-bold text-black">Completion Rate</th>
@@ -160,6 +213,7 @@ export const EnrollmentTracking = () => {
                         {course.course_category}
                       </Badge>
                     </td>
+                    <td className="p-4 text-black">{course.total_lessons}</td>
                     <td className="p-4 text-black">{course.enrollment_count}</td>
                     <td className="p-4 text-black">{course.completed_count}</td>
                     <td className="p-4">
