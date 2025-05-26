@@ -38,21 +38,33 @@ export const RatingModal = ({
 
     setIsSubmitting(true);
     try {
-      const table = type === 'lesson' ? 'lesson_ratings' : 'course_ratings';
-      const idField = type === 'lesson' ? 'lesson_id' : 'course_id';
-      
-      const { error } = await supabase
-        .from(table)
-        .upsert([
-          {
-            user_id: user.id,
-            [idField]: itemId,
-            rating,
-            comment: comment.trim() || null
-          }
-        ]);
+      if (type === 'lesson') {
+        const { error } = await supabase
+          .from('lesson_ratings')
+          .upsert([
+            {
+              user_id: user.id,
+              lesson_id: itemId,
+              rating,
+              comment: comment.trim() || null
+            }
+          ]);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('course_ratings')
+          .upsert([
+            {
+              user_id: user.id,
+              course_id: itemId,
+              rating,
+              comment: comment.trim() || null
+            }
+          ]);
+
+        if (error) throw error;
+      }
 
       toast({
         title: 'Rating Submitted',
