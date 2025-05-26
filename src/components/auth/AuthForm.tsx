@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AuthFormProps {
   mode: 'signin' | 'signup';
@@ -15,6 +17,19 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
   const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
+
+  // Redirect authenticated users
+  useEffect(() => {
+    if (user) {
+      if (isAdmin) {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    }
+  }, [user, isAdmin, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +71,12 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
             description: error.message,
             variant: 'destructive',
           });
+        } else {
+          toast({
+            title: 'Welcome back!',
+            description: 'You have been signed in successfully.',
+          });
+          // Navigation will be handled by the useEffect above
         }
       }
     } catch (error) {
