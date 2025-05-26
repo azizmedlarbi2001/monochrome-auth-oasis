@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Play, CheckCircle, Lock } from 'lucide-react';
 import { LessonPlayer } from './LessonPlayer';
+import { RatingModal } from './RatingModal';
 
 interface Course {
   id: string;
@@ -44,6 +45,8 @@ export const CourseViewer = () => {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showCourseRatingModal, setShowCourseRatingModal] = useState(false);
+  const [hasCourseRating, setHasCourseRating] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -109,14 +112,30 @@ export const CourseViewer = () => {
 
       if (progressError) throw progressError;
 
+      // Check if user has rated the course
+      const { data: courseRating, error: courseRatingError } = await supabase
+        .from('course_ratings')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .single();
+
+      if (courseRatingError && courseRatingError.code !== 'PGRST116') {
+        throw courseRatingError;
+      }
+
       setCourse(courseData);
       setLessons(lessonsData || []);
       setProgress(progressData || []);
+      setHasCourseRating(!!courseRating);
       
       // Select first lesson by default
       if (lessonsData && lessonsData.length > 0) {
         setSelectedLesson(lessonsData[0]);
       }
+
+      // Check if course is completed and needs rating
+      checkCourseCompletion(lessonsData, progressData || []);
     } catch (error) {
       console.error('Error fetching course data:', error);
       toast({
@@ -126,6 +145,18 @@ export const CourseViewer = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkCourseCompletion = (lessonsData: Lesson[], progressData: LessonProgress[]) => {
+    if (lessonsData.length === 0) return;
+
+    const allLessonsCompleted = lessonsData.every(lesson => 
+      progressData.some(p => p.lesson_id === lesson.id && p.completed)
+    );
+
+    if (allLessonsCompleted && !hasCourseRating) {
+      setShowCourseRatingModal(true);
     }
   };
 
@@ -167,6 +198,14 @@ export const CourseViewer = () => {
     }
   };
 
+  const handleCourseRatingSubmitted = () => {
+    setHasCourseRating(true);
+    toast({
+      title: 'Course Completed!',
+      description: 'Congratulations on completing the course!',
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -189,6 +228,10 @@ export const CourseViewer = () => {
     );
   }
 
+  const allLessonsCompleted = lessons.length > 0 && lessons.every(lesson => 
+    progress.some(p => p.lesson_id === lesson.id && p.completed)
+  );
+
   return (
     <div className="min-h-screen bg-white">
       <nav className="border-b-2 border-black p-4">
@@ -207,9 +250,16 @@ export const CourseViewer = () => {
               <p className="text-gray-600">{course.category}</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-green-700 border-green-500 bg-green-50">
-            Enrolled
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-green-700 border-green-500 bg-green-50">
+              Enrolled
+            </Badge>
+            {allLessonsCompleted && hasCourseRating && (
+              <Badge variant="outline" className="text-blue-700 border-blue-500 bg-blue-50">
+                Completed
+              </Badge>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -256,6 +306,25 @@ export const CourseViewer = () => {
                 );
               })}
             </div>
+
+            {/* Course completion status */}
+            {allLessonsCompleted && (
+              <div className="mt-6 p-4 border-2 border-green-500 bg-green-50 rounded">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="font-medium text-green-800">Course Completed!</span>
+                </div>
+                {!hasCourseRating && (
+                  <Button
+                    onClick={() => setShowCourseRatingModal(true)}
+                    size="sm"
+                    className="w-full bg-green-600 text-white hover:bg-green-700"
+                  >
+                    Rate Course
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -274,6 +343,15 @@ export const CourseViewer = () => {
           )}
         </div>
       </div>
+
+      <RatingModal
+        isOpen={showCourseRatingModal}
+        onClose={() => setShowCourseRatingModal(false)}
+        type="course"
+        itemId={courseId!}
+        itemTitle={course.title}
+        onRatingSubmitted={handleCourseRatingSubmitted}
+      />
     </div>
   );
 };

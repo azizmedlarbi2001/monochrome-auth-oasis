@@ -30,13 +30,6 @@ const Index = () => {
                 </Button>
               )}
               <Button
-                onClick={() => navigate('/dashboard')}
-                variant="outline"
-                className="bg-white text-black border-2 border-black hover:bg-gray-100"
-              >
-                Dashboard
-              </Button>
-              <Button
                 onClick={signOut}
                 variant="outline"
                 className="bg-white text-black border-2 border-black hover:bg-gray-100"
@@ -59,13 +52,6 @@ const Index = () => {
                 className="bg-black text-white hover:bg-gray-800 border-2 border-black px-8 py-3 text-lg"
               >
                 Browse Courses
-              </Button>
-              <Button
-                onClick={() => navigate('/dashboard')}
-                variant="outline"
-                className="bg-white text-black border-2 border-black hover:bg-gray-100 px-8 py-3 text-lg"
-              >
-                Dashboard
               </Button>
             </div>
           </div>
