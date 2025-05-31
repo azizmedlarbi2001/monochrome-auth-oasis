@@ -13,7 +13,10 @@ export const AdminDashboard = () => {
         <h1 className="text-4xl font-bold text-black mb-8">Admin Dashboard</h1>
         
         <Tabs defaultValue="courses" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-8">
+        <TabsList
+          className="w-full mb-8 grid grid-cols-2 sm:grid-cols-4 gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300"
+          style={{ minWidth: 0 }}
+        >
             <TabsTrigger value="courses" className="text-black font-medium">Course Management</TabsTrigger>
             <TabsTrigger value="requests" className="text-black font-medium">Access Requests</TabsTrigger>
             <TabsTrigger value="users" className="text-black font-medium">User Management</TabsTrigger>

@@ -48,6 +48,13 @@ export const CourseDiscovery = () => {
     fetchData();
   }, [user]);
 
+  // Debug: log state after fetch
+  useEffect(() => {
+    console.log('availableCourses', availableCourses);
+    console.log('myEnrollments', myEnrollments);
+    console.log('myRequests', myRequests);
+  }, [availableCourses, myEnrollments, myRequests]);
+
   const fetchData = async () => {
     if (!user) return;
     
@@ -96,8 +103,8 @@ export const CourseDiscovery = () => {
 
   const filteredCourses = availableCourses.filter(course =>
     course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.category.toLowerCase().includes(searchTerm.toLowerCase())
+    (course.description ? course.description.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+    (course.category ? course.category.toLowerCase().includes(searchTerm.toLowerCase()) : false)
   );
 
   const requestAccess = async (courseId: string) => {
@@ -210,7 +217,7 @@ export const CourseDiscovery = () => {
                   <p className="text-gray-500 text-lg">No courses found matching your search.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
                   {filteredCourses.map((course) => {
                     const isUserEnrolled = isEnrolled(course.id);
                     const request = getRequestStatus(course.id);
@@ -229,9 +236,9 @@ export const CourseDiscovery = () => {
                           </div>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-gray-700 mb-4 line-clamp-3">{course.description}</p>
+                          <p className="text-gray-700 mb-4 line-clamp-3">{course.description || 'No description provided.'}</p>
                           
-                          {course.deliverables && course.deliverables.length > 0 && (
+                          {Array.isArray(course.deliverables) && course.deliverables.length > 0 && (
                             <div className="mb-4">
                               <h4 className="font-medium text-black mb-2">What you'll learn:</h4>
                               <ul className="text-sm text-gray-600 space-y-1">
@@ -300,7 +307,7 @@ export const CourseDiscovery = () => {
           {!searchTerm && myEnrollments.length > 0 && (
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-black mb-4">My Enrolled Courses</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
                 {myEnrollments.map((enrollment) => (
                   <Card key={enrollment.id} className="border-2 border-black">
                     <CardHeader>
@@ -315,7 +322,7 @@ export const CourseDiscovery = () => {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-700 mb-4 line-clamp-3">{enrollment.course.description}</p>
+                          <p className="text-gray-700 mb-4 line-clamp-3">{enrollment.course.description || 'No description provided.'}</p>
                       <div className="flex items-center gap-2 mb-4">
                         <User className="w-4 h-4 text-gray-500" />
                         <span className="text-sm text-gray-600">{enrollment.course.tutor}</span>
@@ -343,7 +350,7 @@ export const CourseDiscovery = () => {
                   <p className="text-gray-500 text-lg">No courses available.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
                   {availableCourses.map((course) => {
                     const isUserEnrolled = isEnrolled(course.id);
                     const request = getRequestStatus(course.id);

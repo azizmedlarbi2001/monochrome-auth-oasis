@@ -1,11 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Play } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
+import { CheckCircle, Play, BookOpen } from 'lucide-react';
 import { RatingModal } from './RatingModal';
+import { LessonAICompanion } from './LessonAICompanion';
+import { MCQQuiz } from './MCQQuiz';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface Lesson {
   id: string;
@@ -25,11 +28,16 @@ interface LessonPlayerProps {
 export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlayerProps) => {
   const [showVideo, setShowVideo] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showQuiz, setShowQuiz] = useState(false);
   const [hasRated, setHasRated] = useState(false);
+  const [hasPassedQuiz, setHasPassedQuiz] = useState(false);
+  const [quizScore, setQuizScore] = useState<{ score: number; total: number } | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     checkIfUserHasRated();
+    checkQuizStatus();
   }, [lesson.id, user]);
 
   const checkIfUserHasRated = async () => {
@@ -48,6 +56,90 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
     } catch (error) {
       console.error('Error checking rating:', error);
     }
+  };
+
+  const checkQuizStatus = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('lesson_progress')
+        .select('mcq_score, mcq_total')
+        .eq('user_id', user.id)
+        .eq('lesson_id', lesson.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      if (data) {
+        setQuizScore({ score: data.mcq_score, total: data.mcq_total });
+        setHasPassedQuiz(data.mcq_score >= Math.ceil(data.mcq_total * 0.7));
+      }
+    } catch (error) {
+      console.error('Error checking quiz status:', error);
+    }
+  };
+
+  const handleQuizComplete = async (passed: boolean, score: number, total: number) => {
+    setHasPassedQuiz(passed);
+    setQuizScore({ score, total });
+
+    if (passed) {
+      toast({
+        title: 'Quiz Passed! 🎉',
+        description: `You scored ${score}/${total}. You can now proceed to the next lesson.`,
+      });
+
+      // Update progress with quiz score
+      try {
+        const progressData = {
+          user_id: user?.id,
+          lesson_id: lesson.id,
+          mcq_score: score,
+          mcq_total: total,
+          completed: true,
+          completed_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+          .from('lesson_progress')
+          .upsert([progressData]);
+
+        if (error) throw error;
+        onMarkComplete();
+      } catch (error) {
+        console.error('Error updating progress:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update lesson progress.',
+          variant: 'destructive',
+        });
+      }
+    } else {
+      toast({
+        title: 'Quiz Not Passed',
+        description: `You scored ${score}/${total}. You need 70% to pass. Try again!`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleMarkComplete = () => {
+    if (!hasPassedQuiz) {
+      setShowQuiz(true);
+      return;
+    }
+
+    if (!hasRated) {
+      setShowRatingModal(true);
+    } else {
+      onMarkComplete();
+    }
+  };
+
+  const handleRatingSubmitted = () => {
+    setHasRated(true);
+    onMarkComplete();
   };
 
   // Improved video URL processing for better compatibility
@@ -94,22 +186,6 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
 
   const embedUrl = getEmbedUrl(lesson.video_url);
 
-  const handleMarkComplete = () => {
-    if (!hasRated) {
-      setShowRatingModal(true);
-    } else {
-      onMarkComplete();
-    }
-  };
-
-  const handleRatingSubmitted = () => {
-    setHasRated(true);
-    onMarkComplete();
-  };
-
-  const isYouTubeUrl = lesson.video_url && (lesson.video_url.includes('youtube.com') || lesson.video_url.includes('youtu.be'));
-  const isDirectVideoUrl = lesson.video_url && (lesson.video_url.includes('.mp4') || lesson.video_url.includes('.webm') || lesson.video_url.includes('.ogg'));
-
   return (
     <div className="p-6">
       <div className="max-w-4xl mx-auto">
@@ -120,23 +196,52 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
               <p className="text-gray-600">{lesson.description}</p>
             </div>
             <div className="flex items-center gap-2">
-              {isCompleted && (
+              {isCompleted ? (
                 <div className="flex items-center gap-2 text-green-600">
                   <CheckCircle className="w-5 h-5" />
                   <span className="text-sm font-medium">Completed</span>
                 </div>
-              )}
-              {!isCompleted && (
+              ) : (
                 <Button
                   onClick={handleMarkComplete}
                   className="bg-green-600 text-white hover:bg-green-700"
                 >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Mark Complete
+                  {hasPassedQuiz ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark Complete
+                    </>
+                  ) : (
+                    <>
+                      <BookOpen className="w-4 h-4 mr-2" />
+                      Take Quiz
+                    </>
+                  )}
                 </Button>
               )}
             </div>
           </div>
+
+          {/* Quiz Score Display */}
+          {quizScore && (
+            <div className={`mb-4 p-3 rounded-lg border ${
+              hasPassedQuiz 
+                ? 'border-green-500 bg-green-50 text-green-800' 
+                : 'border-yellow-500 bg-yellow-50 text-yellow-800'
+            }`}>
+              <div className="flex items-center gap-2">
+                {hasPassedQuiz ? (
+                  <CheckCircle className="w-5 h-5" />
+                ) : (
+                  <BookOpen className="w-5 h-5" />
+                )}
+                <span>
+                  Quiz Score: {quizScore.score}/{quizScore.total} 
+                  ({Math.round((quizScore.score / quizScore.total) * 100)}%)
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Video Player */}
@@ -157,26 +262,14 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
                   </Button>
                 </div>
               ) : (
-                <div className="aspect-video rounded-lg overflow-hidden">
-                  {isDirectVideoUrl ? (
-                    <video
-                      src={lesson.video_url}
-                      controls
-                      className="w-full h-full"
-                      controlsList="nodownload"
-                    >
-                      Your browser does not support the video tag.
-                    </video>
-                  ) : (
-                    <iframe
-                      src={embedUrl}
-                      className="w-full h-full"
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen
-                      title={lesson.title}
-                      sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                    />
-                  )}
+                <div className="aspect-video">
+                  <iframe
+                    className="w-full h-full rounded-lg"
+                    src={getEmbedUrl(lesson.video_url)}
+                    allowFullScreen
+                    title={lesson.title}
+                    sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                  />
                 </div>
               )}
             </CardContent>
@@ -204,8 +297,29 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
             <p className="text-gray-500">No content available for this lesson yet.</p>
           </div>
         )}
+
+        {/* AI Companion Section */}
+        <LessonAICompanion lessonText={lesson.text_content || lesson.description || ''} />
       </div>
 
+      {/* MCQ Quiz Dialog */}
+      <AlertDialog open={showQuiz} onOpenChange={setShowQuiz}>
+        <AlertDialogContent className="max-w-4xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Lesson Quiz</AlertDialogTitle>
+            <AlertDialogDescription>
+              You need to score at least 70% to complete this lesson.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <MCQQuiz
+            lessonId={lesson.id}
+            onQuizComplete={handleQuizComplete}
+            onClose={() => setShowQuiz(false)}
+          />
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rating Modal */}
       <RatingModal
         isOpen={showRatingModal}
         onClose={() => setShowRatingModal(false)}

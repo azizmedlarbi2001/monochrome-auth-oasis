@@ -46,6 +46,7 @@ export const CourseViewer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showCourseRatingModal, setShowCourseRatingModal] = useState(false);
   const [hasCourseRating, setHasCourseRating] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // <-- move here
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -93,6 +94,7 @@ export const CourseViewer = () => {
 
       if (courseError) throw courseError;
 
+
       // Fetch lessons
       const { data: lessonsData, error: lessonsError } = await supabase
         .from('lessons')
@@ -101,15 +103,23 @@ export const CourseViewer = () => {
         .order('order_index');
 
       if (lessonsError) throw lessonsError;
+      // Debug: log lessonsData
+      console.log('Fetched lessonsData:', lessonsData);
 
-      // Fetch progress
-      const { data: progressData, error: progressError } = await supabase
-        .from('lesson_progress')
-        .select('*')
-        .eq('user_id', user.id)
-        .in('lesson_id', lessonsData.map(l => l.id));
+      // Defensive: ensure lessonsData is an array
+      const safeLessons = Array.isArray(lessonsData) ? lessonsData : [];
 
-      if (progressError) throw progressError;
+      // Fetch progress only if there are lessons
+      let progressData = [];
+      if (safeLessons.length > 0) {
+        const { data: progressFetched, error: progressError } = await supabase
+          .from('lesson_progress')
+          .select('*')
+          .eq('user_id', user.id)
+          .in('lesson_id', safeLessons.map(l => l.id));
+        if (progressError) throw progressError;
+        progressData = progressFetched || [];
+      }
 
       // Check if user has rated the course
       const { data: courseRating, error: courseRatingError } = await supabase
@@ -124,8 +134,8 @@ export const CourseViewer = () => {
       }
 
       setCourse(courseData);
-      setLessons(lessonsData || []);
-      setProgress(progressData || []);
+      setLessons(safeLessons);
+      setProgress(progressData);
       setHasCourseRating(!!courseRating);
       
       // Select first lesson by default
@@ -246,10 +256,12 @@ export const CourseViewer = () => {
     progress.some(p => p.lesson_id === lesson.id && p.completed)
   );
 
+
+
   return (
     <div className="min-h-screen bg-white">
       <nav className="border-b-2 border-black p-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <div className="flex items-center gap-4">
             <Button
               onClick={() => navigate('/courses')}
@@ -264,7 +276,10 @@ export const CourseViewer = () => {
               <p className="text-gray-600">{course.category}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-2 sm:mt-0">
+            <Button className="sm:hidden border-black text-black" variant="outline" onClick={() => setSidebarOpen(true)}>
+              Show Lessons
+            </Button>
             <Badge variant="outline" className="text-green-700 border-green-500 bg-green-50">
               Enrolled
             </Badge>
@@ -277,16 +292,16 @@ export const CourseViewer = () => {
         </div>
       </nav>
 
-      <div className="flex">
-        {/* Lesson Sidebar */}
-        <div className="w-80 border-r-2 border-black bg-gray-50 min-h-screen">
+      <div className="flex flex-col sm:flex-row">
+        {/* Sidebar for desktop, Drawer for mobile */}
+        {/* Desktop Sidebar */}
+        <div className="hidden sm:block w-80 border-r-2 border-black bg-gray-50 min-h-screen flex-shrink-0">
           <div className="p-4">
             <h3 className="font-bold text-black mb-4">Course Content</h3>
             <div className="space-y-2">
               {lessons.map((lesson, index) => {
                 const lessonProgress = getLessonProgress(lesson.id);
                 const isCompleted = lessonProgress?.completed;
-                
                 return (
                   <Card
                     key={lesson.id}
@@ -320,8 +335,6 @@ export const CourseViewer = () => {
                 );
               })}
             </div>
-
-            {/* Course completion status */}
             {allLessonsCompleted && (
               <div className="mt-6 p-4 border-2 border-green-500 bg-green-50 rounded">
                 <div className="flex items-center gap-2 mb-2">
@@ -342,9 +355,87 @@ export const CourseViewer = () => {
           </div>
         </div>
 
+        {/* Mobile Drawer Sidebar */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-40 flex">
+            <div className="w-4/5 max-w-xs bg-white border-r-2 border-black min-h-screen p-4 overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-black">Course Content</h3>
+                <Button size="sm" variant="outline" className="border-black text-black" onClick={() => setSidebarOpen(false)}>
+                  Close
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {lessons.map((lesson, index) => {
+                  const lessonProgress = getLessonProgress(lesson.id);
+                  const isCompleted = lessonProgress?.completed;
+                  return (
+                    <Card
+                      key={lesson.id}
+                      className={`cursor-pointer transition-colors ${
+                        selectedLesson?.id === lesson.id
+                          ? 'border-black bg-white'
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                      onClick={() => {
+                        setSelectedLesson(lesson);
+                        setSidebarOpen(false);
+                      }}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-shrink-0">
+                            {isCompleted ? (
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <Play className="w-5 h-5 text-gray-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-black truncate">
+                              {index + 1}. {lesson.title}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
+                              {lesson.description}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              {allLessonsCompleted && (
+                <div className="mt-6 p-4 border-2 border-green-500 bg-green-50 rounded">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="font-medium text-green-800">Course Completed!</span>
+                  </div>
+                  {!hasCourseRating && (
+                    <Button
+                      onClick={() => {
+                        setShowCourseRatingModal(true);
+                        setSidebarOpen(false);
+                      }}
+                      size="sm"
+                      className="w-full bg-green-600 text-white hover:bg-green-700"
+                    >
+                      Rate Course
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
-        <div className="flex-1">
-          {selectedLesson ? (
+        <div className="flex-1 min-w-0">
+          {lessons.length === 0 ? (
+            <div className="flex items-center justify-center h-96">
+              <p className="text-gray-500 text-lg">No lessons found for this course. Please contact your instructor.</p>
+            </div>
+          ) : selectedLesson ? (
             <LessonPlayer
               lesson={selectedLesson}
               isCompleted={!!getLessonProgress(selectedLesson.id)?.completed}
