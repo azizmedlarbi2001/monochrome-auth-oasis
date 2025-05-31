@@ -17,11 +17,11 @@ interface CourseRating {
   user_id: string;
   courses?: {
     title: string;
-  };
+  } | null;
   profiles?: {
     email: string;
     full_name: string | null;
-  };
+  } | null;
 }
 
 interface LessonRating {
@@ -35,12 +35,12 @@ interface LessonRating {
     title: string;
     courses?: {
       title: string;
-    };
-  };
+    } | null;
+  } | null;
   profiles?: {
     email: string;
     full_name: string | null;
-  };
+  } | null;
 }
 
 export const RatingsFeedbackManagement = () => {
@@ -53,12 +53,15 @@ export const RatingsFeedbackManagement = () => {
         .from('course_ratings')
         .select(`
           *,
-          courses!inner(title),
-          profiles!inner(email, full_name)
+          courses(title),
+          profiles(email, full_name)
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching course ratings:', error);
+        throw error;
+      }
       return data as CourseRating[];
     },
   });
@@ -70,15 +73,18 @@ export const RatingsFeedbackManagement = () => {
         .from('lesson_ratings')
         .select(`
           *,
-          lessons!inner(
+          lessons(
             title,
-            courses!inner(title)
+            courses(title)
           ),
-          profiles!inner(email, full_name)
+          profiles(email, full_name)
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching lesson ratings:', error);
+        throw error;
+      }
       return data as LessonRating[];
     },
   });
@@ -203,7 +209,7 @@ export const RatingsFeedbackManagement = () => {
                               {rating.profiles?.full_name || 'Anonymous'}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {rating.profiles?.email}
+                              {rating.profiles?.email || 'No email'}
                             </div>
                           </div>
                         </TableCell>
@@ -269,7 +275,7 @@ export const RatingsFeedbackManagement = () => {
                               {rating.profiles?.full_name || 'Anonymous'}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {rating.profiles?.email}
+                              {rating.profiles?.email || 'No email'}
                             </div>
                           </div>
                         </TableCell>
