@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription } from '@/components/ui/alert-dialog';
@@ -32,6 +33,8 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
   const [hasRated, setHasRated] = useState(false);
   const [hasPassedQuiz, setHasPassedQuiz] = useState(false);
   const [quizScore, setQuizScore] = useState<{ score: number; total: number } | null>(null);
+  const [videoCompleted, setVideoCompleted] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -39,6 +42,20 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
     checkIfUserHasRated();
     checkQuizStatus();
   }, [lesson.id, user]);
+
+  // Listen for video completion events
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // YouTube video ended
+      if (event.data?.type === 'video-ended' || event.data === 'video-ended') {
+        setVideoCompleted(true);
+        setShowQuiz(true);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   const checkIfUserHasRated = async () => {
     if (!user) return;
@@ -73,7 +90,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
       
       if (data) {
         setQuizScore({ score: data.mcq_score, total: data.mcq_total });
-        setHasPassedQuiz(data.mcq_score >= Math.ceil(data.mcq_total * 0.7));
+        setHasPassedQuiz(data.mcq_score >= Math.ceil(data.mcq_total * 0.5)); // Changed to 50%
       }
     } catch (error) {
       console.error('Error checking quiz status:', error);
@@ -118,7 +135,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
     } else {
       toast({
         title: 'Quiz Not Passed',
-        description: `You scored ${score}/${total}. You need 70% to pass. Try again!`,
+        description: `You scored ${score}/${total}. You need 50% to pass. Try again!`,
         variant: 'destructive',
       });
     }
@@ -157,7 +174,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
       }
       
       if (videoId) {
-        return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&showinfo=0`;
+        return `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&showinfo=0&enablejsapi=1`;
       }
     }
     
@@ -264,11 +281,22 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
               ) : (
                 <div className="aspect-video">
                   <iframe
+                    ref={iframeRef}
                     className="w-full h-full rounded-lg"
-                    src={getEmbedUrl(lesson.video_url)}
+                    src={embedUrl}
                     allowFullScreen
                     title={lesson.title}
                     sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                    onLoad={() => {
+                      // For direct video files, add event listeners
+                      const iframe = iframeRef.current;
+                      if (iframe && lesson.video_url.includes('.mp4')) {
+                        iframe.addEventListener('ended', () => {
+                          setVideoCompleted(true);
+                          setShowQuiz(true);
+                        });
+                      }
+                    }}
                   />
                 </div>
               )}
@@ -308,7 +336,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
           <AlertDialogHeader>
             <AlertDialogTitle>Lesson Quiz</AlertDialogTitle>
             <AlertDialogDescription>
-              You need to score at least 70% to complete this lesson.
+              You need to score at least 50% to complete this lesson.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <MCQQuiz

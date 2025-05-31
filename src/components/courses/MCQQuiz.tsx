@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,7 +85,7 @@ export const MCQQuiz = ({ lessonId, onQuizComplete, onClose }: MCQQuizProps) => 
     const handleSubmit = () => {
         const score = calculateScore();
         const total = questions.length;
-        const passed = score >= Math.ceil(total * 0.7); // 70% passing grade
+        const passed = score >= Math.ceil(total * 0.5); // Changed to 50% passing grade
 
         setIsSubmitted(true);
         onQuizComplete(passed, score, total);
@@ -144,7 +145,7 @@ export const MCQQuiz = ({ lessonId, onQuizComplete, onClose }: MCQQuizProps) => 
                                 variant="outline" 
                                 className="bg-yellow-50 text-yellow-800 border-yellow-500"
                             >
-                                70% Required to Pass
+                                50% Required to Pass
                             </Badge>
                         )}
                     </div>
