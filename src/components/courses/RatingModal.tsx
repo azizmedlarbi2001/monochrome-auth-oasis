@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,8 +28,56 @@ export const RatingModal = ({
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingRating, setExistingRating] = useState<any>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Fetch existing rating when modal opens
+  useEffect(() => {
+    if (isOpen && user) {
+      fetchExistingRating();
+    }
+  }, [isOpen, user, type, itemId]);
+
+  const fetchExistingRating = async () => {
+    if (!user) return;
+
+    try {
+      if (type === 'lesson') {
+        const { data, error } = await supabase
+          .from('lesson_ratings')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('lesson_id', itemId)
+          .maybeSingle();
+
+        if (error) throw error;
+        
+        if (data) {
+          setExistingRating(data);
+          setRating(data.rating);
+          setComment(data.comment || '');
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('course_ratings')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('course_id', itemId)
+          .maybeSingle();
+
+        if (error) throw error;
+        
+        if (data) {
+          setExistingRating(data);
+          setRating(data.rating);
+          setComment(data.comment || '');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching existing rating:', error);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -48,7 +96,9 @@ export const RatingModal = ({
               rating,
               comment: comment.trim() || null
             }
-          ]);
+          ], {
+            onConflict: 'user_id,lesson_id'
+          });
 
         if (error) throw error;
       } else {
@@ -61,20 +111,21 @@ export const RatingModal = ({
               rating,
               comment: comment.trim() || null
             }
-          ]);
+          ], {
+            onConflict: 'user_id,course_id'
+          });
 
         if (error) throw error;
       }
 
       toast({
-        title: 'Rating Submitted',
-        description: `Thank you for rating this ${type}!`,
+        title: existingRating ? 'Rating Updated' : 'Rating Submitted',
+        description: `Thank you for ${existingRating ? 'updating your rating for' : 'rating'} this ${type}!`,
       });
 
       onRatingSubmitted();
       onClose();
-      setRating(0);
-      setComment('');
+      resetForm();
     } catch (error) {
       console.error('Error submitting rating:', error);
       toast({
@@ -87,15 +138,26 @@ export const RatingModal = ({
     }
   };
 
+  const resetForm = () => {
+    setRating(0);
+    setComment('');
+    setExistingRating(null);
+  };
+
+  const handleClose = () => {
+    onClose();
+    resetForm();
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <Card className="w-full max-w-md mx-4 border-2 border-black">
         <CardHeader>
           <div className="flex justify-between items-start">
             <CardTitle className="text-black">
-              Rate {type === 'lesson' ? 'Lesson' : 'Course'}
+              {existingRating ? 'Update Your Rating' : `Rate ${type === 'lesson' ? 'Lesson' : 'Course'}`}
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={handleClose}>
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -145,10 +207,10 @@ export const RatingModal = ({
               disabled={rating === 0 || isSubmitting}
               className="flex-1 bg-black text-white hover:bg-gray-800"
             >
-              {isSubmitting ? 'Submitting...' : 'Submit Rating'}
+              {isSubmitting ? 'Submitting...' : existingRating ? 'Update Rating' : 'Submit Rating'}
             </Button>
             <Button
-              onClick={onClose}
+              onClick={handleClose}
               variant="outline"
               className="border-black text-black hover:bg-gray-100"
             >
