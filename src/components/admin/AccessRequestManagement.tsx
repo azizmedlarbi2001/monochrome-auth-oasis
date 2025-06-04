@@ -1,10 +1,12 @@
+
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, Clock, User, BookOpen } from 'lucide-react';
+import { Check, X, Clock, User, BookOpen, MessageCircle } from 'lucide-react';
+import { AccessRequestMessages } from './AccessRequestMessages';
 
 interface AccessRequest {
   id: string;
@@ -26,6 +28,7 @@ interface AccessRequest {
 export const AccessRequestManagement = () => {
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedRequestForMessages, setSelectedRequestForMessages] = useState<AccessRequest | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -148,6 +151,19 @@ export const AccessRequestManagement = () => {
     );
   }
 
+  // Show messaging interface if a request is selected
+  if (selectedRequestForMessages) {
+    return (
+      <div className="space-y-6">
+        <AccessRequestMessages
+          requestId={selectedRequestForMessages.id}
+          userEmail={selectedRequestForMessages.user_profile?.email || 'Unknown User'}
+          onClose={() => setSelectedRequestForMessages(null)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold text-black">Course Access Requests</h2>
@@ -193,25 +209,36 @@ export const AccessRequestManagement = () => {
                     </div>
                   )}
 
-                  {request.status === 'pending' && (
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleRequest(request.id, 'approved')}
-                        className="bg-green-600 text-white hover:bg-green-700"
-                      >
-                        <Check className="w-4 h-4 mr-2" />
-                        Approve
-                      </Button>
-                      <Button
-                        onClick={() => handleRequest(request.id, 'rejected')}
-                        variant="outline"
-                        className="border-red-500 text-red-500 hover:bg-red-50"
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Reject
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setSelectedRequestForMessages(request)}
+                      variant="outline"
+                      className="border-blue-500 text-blue-500 hover:bg-blue-50"
+                    >
+                      <MessageCircle className="w-4 h-4 mr-2" />
+                      Messages
+                    </Button>
+
+                    {request.status === 'pending' && (
+                      <>
+                        <Button
+                          onClick={() => handleRequest(request.id, 'approved')}
+                          className="bg-green-600 text-white hover:bg-green-700"
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => handleRequest(request.id, 'rejected')}
+                          variant="outline"
+                          className="border-red-500 text-red-500 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

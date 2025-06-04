@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, BookOpen, Clock, User, Star } from 'lucide-react';
+import { Search, BookOpen, Clock, User, Star, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { UserAccessRequests } from './UserAccessRequests';
 
 interface Course {
   id: string;
@@ -40,6 +42,7 @@ export const CourseDiscovery = () => {
   const [myEnrollments, setMyEnrollments] = useState<Enrollment[]>([]);
   const [myRequests, setMyRequests] = useState<AccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMyRequests, setShowMyRequests] = useState(false);
   const { user, isAdmin, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -170,6 +173,14 @@ export const CourseDiscovery = () => {
           <h1 className="text-2xl font-bold text-black">Mentify Courses</h1>
           <div className="flex items-center space-x-4">
             <span className="text-black font-medium">{user?.email}</span>
+            <Button
+              onClick={() => setShowMyRequests(!showMyRequests)}
+              variant="outline"
+              className="bg-white text-black border-2 border-black hover:bg-gray-100"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              My Requests
+            </Button>
             {isAdmin && (
               <Button
                 onClick={() => navigate('/admin')}
@@ -192,243 +203,250 @@ export const CourseDiscovery = () => {
 
       <div className="p-8">
         <div className="max-w-6xl mx-auto">
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <Input
-                type="text"
-                placeholder="Search courses by title, description, or category..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-2 border-black text-black placeholder-gray-500 focus:ring-0 focus:border-black"
-              />
-            </div>
-          </div>
-
-          {/* Search Results (when searching) */}
-          {searchTerm && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-black mb-4">
-                Search Results ({filteredCourses.length})
-              </h2>
-              {filteredCourses.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 text-lg">No courses found matching your search.</p>
+          {/* Show access requests if toggled */}
+          {showMyRequests ? (
+            <UserAccessRequests />
+          ) : (
+            <>
+              {/* Search Bar */}
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Input
+                    type="text"
+                    placeholder="Search courses by title, description, or category..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 border-2 border-black text-black placeholder-gray-500 focus:ring-0 focus:border-black"
+                  />
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
-                  {filteredCourses.map((course) => {
-                    const isUserEnrolled = isEnrolled(course.id);
-                    const request = getRequestStatus(course.id);
-
-                    return (
-                      <Card key={course.id} className="border-2 border-black">
-                        <CardHeader>
-                          <CardTitle className="text-black">{course.title}</CardTitle>
-                          <div className="flex gap-2">
-                            <Badge variant="outline" className="text-black border-black">
-                              {course.category}
-                            </Badge>
-                            <Badge variant="outline" className="text-black border-black">
-                              {course.tutor}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-gray-700 mb-4 line-clamp-3">{course.description || 'No description provided.'}</p>
-                          
-                          {Array.isArray(course.deliverables) && course.deliverables.length > 0 && (
-                            <div className="mb-4">
-                              <h4 className="font-medium text-black mb-2">What you'll learn:</h4>
-                              <ul className="text-sm text-gray-600 space-y-1">
-                                {course.deliverables.slice(0, 3).map((deliverable, index) => (
-                                  <li key={index}>• {deliverable}</li>
-                                ))}
-                                {course.deliverables.length > 3 && (
-                                  <li className="text-gray-500">+ {course.deliverables.length - 3} more...</li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-2 mb-4">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm text-gray-600">
-                              Created {new Date(course.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-
-                          {isUserEnrolled ? (
-                            <Button
-                              onClick={() => viewCourse(course.id)}
-                              className="w-full bg-black text-white hover:bg-gray-800"
-                            >
-                              <BookOpen className="w-4 h-4 mr-2" />
-                              View Course
-                            </Button>
-                          ) : isAdmin ? (
-                            <Button
-                              onClick={() => viewAdminCourse(course.id)}
-                              variant="outline"
-                              className="w-full border-blue-500 text-blue-500 hover:bg-blue-50"
-                            >
-                              Preview as Admin
-                            </Button>
-                          ) : request ? (
-                            <Button
-                              disabled
-                              variant="outline"
-                              className="w-full border-orange-500 text-orange-500"
-                            >
-                              {request.status === 'pending' && 'Request Pending'}
-                              {request.status === 'approved' && 'Request Approved'}
-                              {request.status === 'rejected' && 'Request Rejected'}
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={() => requestAccess(course.id)}
-                              variant="outline"
-                              className="w-full border-black text-black hover:bg-gray-100"
-                            >
-                              Request Access
-                            </Button>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* My Enrollments (always visible when not searching) */}
-          {!searchTerm && myEnrollments.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-black mb-4">My Enrolled Courses</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
-                {myEnrollments.map((enrollment) => (
-                  <Card key={enrollment.id} className="border-2 border-black">
-                    <CardHeader>
-                      <CardTitle className="text-black">{enrollment.course.title}</CardTitle>
-                      <div className="flex gap-2">
-                        <Badge variant="outline" className="text-green-700 border-green-500 bg-green-50">
-                          Enrolled
-                        </Badge>
-                        <Badge variant="outline" className="text-black border-black">
-                          {enrollment.course.category}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                          <p className="text-gray-700 mb-4 line-clamp-3">{enrollment.course.description || 'No description provided.'}</p>
-                      <div className="flex items-center gap-2 mb-4">
-                        <User className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">{enrollment.course.tutor}</span>
-                      </div>
-                      <Button
-                        onClick={() => viewCourse(enrollment.course.id)}
-                        className="w-full bg-black text-white hover:bg-gray-800"
-                      >
-                        <BookOpen className="w-4 h-4 mr-2" />
-                        Continue Learning
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
               </div>
-            </div>
-          )}
 
-          {/* Available Courses (when not searching) */}
-          {!searchTerm && (
-            <div>
-              <h2 className="text-2xl font-bold text-black mb-4">Available Courses</h2>
-              {availableCourses.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-gray-500 text-lg">No courses available.</p>
+              {/* Search Results (when searching) */}
+              {searchTerm && (
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold text-black mb-4">
+                    Search Results ({filteredCourses.length})
+                  </h2>
+                  {filteredCourses.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500 text-lg">No courses found matching your search.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
+                      {filteredCourses.map((course) => {
+                        const isUserEnrolled = isEnrolled(course.id);
+                        const request = getRequestStatus(course.id);
+
+                        return (
+                          <Card key={course.id} className="border-2 border-black">
+                            <CardHeader>
+                              <CardTitle className="text-black">{course.title}</CardTitle>
+                              <div className="flex gap-2">
+                                <Badge variant="outline" className="text-black border-black">
+                                  {course.category}
+                                </Badge>
+                                <Badge variant="outline" className="text-black border-black">
+                                  {course.tutor}
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-gray-700 mb-4 line-clamp-3">{course.description || 'No description provided.'}</p>
+                              
+                              {Array.isArray(course.deliverables) && course.deliverables.length > 0 && (
+                                <div className="mb-4">
+                                  <h4 className="font-medium text-black mb-2">What you'll learn:</h4>
+                                  <ul className="text-sm text-gray-600 space-y-1">
+                                    {course.deliverables.slice(0, 3).map((deliverable, index) => (
+                                      <li key={index}>• {deliverable}</li>
+                                    ))}
+                                    {course.deliverables.length > 3 && (
+                                      <li className="text-gray-500">+ {course.deliverables.length - 3} more...</li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-2 mb-4">
+                                <Clock className="w-4 h-4 text-gray-500" />
+                                <span className="text-sm text-gray-600">
+                                  Created {new Date(course.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+
+                              {isUserEnrolled ? (
+                                <Button
+                                  onClick={() => viewCourse(course.id)}
+                                  className="w-full bg-black text-white hover:bg-gray-800"
+                                >
+                                  <BookOpen className="w-4 h-4 mr-2" />
+                                  View Course
+                                </Button>
+                              ) : isAdmin ? (
+                                <Button
+                                  onClick={() => viewAdminCourse(course.id)}
+                                  variant="outline"
+                                  className="w-full border-blue-500 text-blue-500 hover:bg-blue-50"
+                                >
+                                  Preview as Admin
+                                </Button>
+                              ) : request ? (
+                                <Button
+                                  disabled
+                                  variant="outline"
+                                  className="w-full border-orange-500 text-orange-500"
+                                >
+                                  {request.status === 'pending' && 'Request Pending'}
+                                  {request.status === 'approved' && 'Request Approved'}
+                                  {request.status === 'rejected' && 'Request Rejected'}
+                                </Button>
+                              ) : (
+                                <Button
+                                  onClick={() => requestAccess(course.id)}
+                                  variant="outline"
+                                  className="w-full border-black text-black hover:bg-gray-100"
+                                >
+                                  Request Access
+                                </Button>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
-                  {availableCourses.map((course) => {
-                    const isUserEnrolled = isEnrolled(course.id);
-                    const request = getRequestStatus(course.id);
+              )}
 
-                    // Skip showing enrolled courses in available section
-                    if (isUserEnrolled) return null;
-
-                    return (
-                      <Card key={course.id} className="border-2 border-black">
+              {/* My Enrollments (always visible when not searching) */}
+              {!searchTerm && myEnrollments.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold text-black mb-4">My Enrolled Courses</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
+                    {myEnrollments.map((enrollment) => (
+                      <Card key={enrollment.id} className="border-2 border-black">
                         <CardHeader>
-                          <CardTitle className="text-black">{course.title}</CardTitle>
+                          <CardTitle className="text-black">{enrollment.course.title}</CardTitle>
                           <div className="flex gap-2">
-                            <Badge variant="outline" className="text-black border-black">
-                              {course.category}
+                            <Badge variant="outline" className="text-green-700 border-green-500 bg-green-50">
+                              Enrolled
                             </Badge>
                             <Badge variant="outline" className="text-black border-black">
-                              {course.tutor}
+                              {enrollment.course.category}
                             </Badge>
                           </div>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-gray-700 mb-4 line-clamp-3">{course.description}</p>
-                          
-                          {course.deliverables && course.deliverables.length > 0 && (
-                            <div className="mb-4">
-                              <h4 className="font-medium text-black mb-2">What you'll learn:</h4>
-                              <ul className="text-sm text-gray-600 space-y-1">
-                                {course.deliverables.slice(0, 3).map((deliverable, index) => (
-                                  <li key={index}>• {deliverable}</li>
-                                ))}
-                                {course.deliverables.length > 3 && (
-                                  <li className="text-gray-500">+ {course.deliverables.length - 3} more...</li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-
+                              <p className="text-gray-700 mb-4 line-clamp-3">{enrollment.course.description || 'No description provided.'}</p>
                           <div className="flex items-center gap-2 mb-4">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm text-gray-600">
-                              Created {new Date(course.created_at).toLocaleDateString()}
-                            </span>
+                            <User className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm text-gray-600">{enrollment.course.tutor}</span>
                           </div>
-
-                          {isAdmin ? (
-                            <Button
-                              onClick={() => viewAdminCourse(course.id)}
-                              variant="outline"
-                              className="w-full border-blue-500 text-blue-500 hover:bg-blue-50"
-                            >
-                              Preview as Admin
-                            </Button>
-                          ) : request ? (
-                            <Button
-                              disabled
-                              variant="outline"
-                              className="w-full border-orange-500 text-orange-500"
-                            >
-                              {request.status === 'pending' && 'Request Pending'}
-                              {request.status === 'approved' && 'Request Approved'}
-                              {request.status === 'rejected' && 'Request Rejected'}
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={() => requestAccess(course.id)}
-                              variant="outline"
-                              className="w-full border-black text-black hover:bg-gray-100"
-                            >
-                              Request Access
-                            </Button>
-                          )}
+                          <Button
+                            onClick={() => viewCourse(enrollment.course.id)}
+                            className="w-full bg-black text-white hover:bg-gray-800"
+                          >
+                            <BookOpen className="w-4 h-4 mr-2" />
+                            Continue Learning
+                          </Button>
                         </CardContent>
                       </Card>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
+
+              {/* Available Courses (when not searching) */}
+              {!searchTerm && (
+                <div>
+                  <h2 className="text-2xl font-bold text-black mb-4">Available Courses</h2>
+                  {availableCourses.length === 0 ? (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500 text-lg">No courses available.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-2 sm:px-0">
+                      {availableCourses.map((course) => {
+                        const isUserEnrolled = isEnrolled(course.id);
+                        const request = getRequestStatus(course.id);
+
+                        // Skip showing enrolled courses in available section
+                        if (isUserEnrolled) return null;
+
+                        return (
+                          <Card key={course.id} className="border-2 border-black">
+                            <CardHeader>
+                              <CardTitle className="text-black">{course.title}</CardTitle>
+                              <div className="flex gap-2">
+                                <Badge variant="outline" className="text-black border-black">
+                                  {course.category}
+                                </Badge>
+                                <Badge variant="outline" className="text-black border-black">
+                                  {course.tutor}
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-gray-700 mb-4 line-clamp-3">{course.description}</p>
+                              
+                              {course.deliverables && course.deliverables.length > 0 && (
+                                <div className="mb-4">
+                                  <h4 className="font-medium text-black mb-2">What you'll learn:</h4>
+                                  <ul className="text-sm text-gray-600 space-y-1">
+                                    {course.deliverables.slice(0, 3).map((deliverable, index) => (
+                                      <li key={index}>• {deliverable}</li>
+                                    ))}
+                                    {course.deliverables.length > 3 && (
+                                      <li className="text-gray-500">+ {course.deliverables.length - 3} more...</li>
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-2 mb-4">
+                                <Clock className="w-4 h-4 text-gray-500" />
+                                <span className="text-sm text-gray-600">
+                                  Created {new Date(course.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+
+                              {isAdmin ? (
+                                <Button
+                                  onClick={() => viewAdminCourse(course.id)}
+                                  variant="outline"
+                                  className="w-full border-blue-500 text-blue-500 hover:bg-blue-50"
+                                >
+                                  Preview as Admin
+                                </Button>
+                              ) : request ? (
+                                <Button
+                                  disabled
+                                  variant="outline"
+                                  className="w-full border-orange-500 text-orange-500"
+                                >
+                                  {request.status === 'pending' && 'Request Pending'}
+                                  {request.status === 'approved' && 'Request Approved'}
+                                  {request.status === 'rejected' && 'Request Rejected'}
+                                </Button>
+                              ) : (
+                                <Button
+                                  onClick={() => requestAccess(course.id)}
+                                  variant="outline"
+                                  className="w-full border-black text-black hover:bg-gray-100"
+                                >
+                                  Request Access
+                                </Button>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

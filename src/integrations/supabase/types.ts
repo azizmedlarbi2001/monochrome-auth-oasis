@@ -53,6 +53,44 @@ export type Database = {
           },
         ]
       }
+      course_messages: {
+        Row: {
+          attachments: string[] | null
+          course_access_request_id: string
+          id: string
+          is_admin_sender: boolean
+          message_text: string | null
+          sender_id: string
+          sent_at: string
+        }
+        Insert: {
+          attachments?: string[] | null
+          course_access_request_id: string
+          id?: string
+          is_admin_sender?: boolean
+          message_text?: string | null
+          sender_id: string
+          sent_at?: string
+        }
+        Update: {
+          attachments?: string[] | null
+          course_access_request_id?: string
+          id?: string
+          is_admin_sender?: boolean
+          message_text?: string | null
+          sender_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_messages_course_access_request_id_fkey"
+            columns: ["course_access_request_id"]
+            isOneToOne: false
+            referencedRelation: "course_access_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_ratings: {
         Row: {
           comment: string | null
