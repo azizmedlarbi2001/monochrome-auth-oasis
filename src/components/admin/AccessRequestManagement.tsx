@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Check, X, Clock, User, BookOpen, MessageCircle } from 'lucide-react';
 import { AccessRequestMessages } from './AccessRequestMessages';
+import { MessageNotifications } from './MessageNotifications';
 
 interface AccessRequest {
   id: string;
@@ -143,6 +143,13 @@ export const AccessRequestManagement = () => {
     }
   };
 
+  const handleNotificationClick = (requestId: string) => {
+    const request = requests.find(r => r.id === requestId);
+    if (request) {
+      setSelectedRequestForMessages(request);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -167,6 +174,16 @@ export const AccessRequestManagement = () => {
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold text-black">Course Access Requests</h2>
+      
+      {/* Message Notifications Section */}
+      <Card className="border-2 border-blue-500">
+        <CardHeader>
+          <CardTitle className="text-blue-600">Message Center</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MessageNotifications onNotificationClick={handleNotificationClick} />
+        </CardContent>
+      </Card>
       
       {requests.length === 0 ? (
         <div className="text-center py-12">
