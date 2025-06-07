@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Search, BookOpen, Clock, User, Star, MessageSquare } from 'lucide-react';
+import { Search, BookOpen, Clock, User, Star, MessageSquare, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { UserAccessRequests } from './UserAccessRequests';
 
@@ -173,6 +173,13 @@ export const CourseDiscovery = () => {
           <h1 className="text-2xl font-bold text-black">Mentify Courses</h1>
           <div className="flex items-center space-x-4">
             <span className="text-black font-medium">{user?.email}</span>
+            <Button
+              onClick={() => navigate('/dashboard')}
+              className="bg-black text-white hover:bg-gray-800 border-2 border-black"
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
             <Button
               onClick={() => setShowMyRequests(!showMyRequests)}
               variant="outline"
