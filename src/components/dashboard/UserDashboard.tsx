@@ -1,8 +1,10 @@
+
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Star, Trophy } from 'lucide-react';
+import { PointsDashboard } from '../user/PointsDashboard';
 
 export const UserDashboard = () => {
   const { user, isAdmin, signOut } = useAuth();
@@ -38,7 +40,7 @@ export const UserDashboard = () => {
               Welcome back!
             </h2>
             <p className="text-black text-lg mb-6">
-              Ready to continue your learning journey?
+              Ready to continue your learning journey and earn rewards?
             </p>
             
             <div className="flex gap-4 mb-8">
@@ -74,6 +76,15 @@ export const UserDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Points Dashboard */}
+          <div className="bg-white border-2 border-black p-8">
+            <h2 className="text-2xl font-bold text-black mb-6 flex items-center gap-2">
+              <Trophy className="w-6 h-6" />
+              Rewards & Points
+            </h2>
+            <PointsDashboard />
           </div>
         </div>
       </div>

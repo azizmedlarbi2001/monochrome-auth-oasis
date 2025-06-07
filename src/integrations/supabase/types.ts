@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      conversion_rules: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          discount_percentage: number
+          id: string
+          is_active: boolean | null
+          points_required: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          discount_percentage: number
+          id?: string
+          is_active?: boolean | null
+          points_required: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          discount_percentage?: number
+          id?: string
+          is_active?: boolean | null
+          points_required?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       course_access_requests: {
         Row: {
           admin_notes: string | null
@@ -382,6 +412,76 @@ export type Database = {
           },
         ]
       }
+      points_settings: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          id: string
+          points_awarded: number
+          updated_at: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          id?: string
+          points_awarded?: number
+          updated_at?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          id?: string
+          points_awarded?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "points_settings_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: true
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      points_transactions: {
+        Row: {
+          course_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          points_change: number
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          course_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          points_change: number
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          course_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          points_change?: number
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "points_transactions_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -406,6 +506,72 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      promo_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          discount_percentage: number
+          expires_at: string | null
+          id: string
+          is_redeemed: boolean | null
+          points_spent: number
+          redeemed_at: string | null
+          redeemed_by_admin: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          discount_percentage: number
+          expires_at?: string | null
+          id?: string
+          is_redeemed?: boolean | null
+          points_spent: number
+          redeemed_at?: string | null
+          redeemed_by_admin?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          discount_percentage?: number
+          expires_at?: string | null
+          id?: string
+          is_redeemed?: boolean | null
+          points_spent?: number
+          redeemed_at?: string | null
+          redeemed_by_admin?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_points: {
+        Row: {
+          available_points: number | null
+          created_at: string | null
+          id: string
+          total_points: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          available_points?: number | null
+          created_at?: string | null
+          id?: string
+          total_points?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          available_points?: number | null
+          created_at?: string | null
+          id?: string
+          total_points?: number | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -470,6 +636,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_promo_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       has_role: {
         Args: {
           _user_id: string

@@ -9,6 +9,8 @@ import { UserManagement } from './UserManagement';
 import { EnrollmentTracking } from './EnrollmentTracking';
 import { AccessRequestManagement } from './AccessRequestManagement';
 import { RatingsFeedbackManagement } from './RatingsFeedbackManagement';
+import { PointsManagement } from './PointsManagement';
+import { PromoCodeVerification } from './PromoCodeVerification';
 
 export const AdminDashboard = () => {
   const { user, signOut } = useAuth();
@@ -50,7 +52,7 @@ export const AdminDashboard = () => {
         <div className="max-w-7xl mx-auto">
           <Tabs defaultValue="courses" className="w-full">
             <TabsList
-              className="w-full mb-8 grid grid-cols-2 sm:grid-cols-5 gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300"
+              className="w-full mb-8 grid grid-cols-2 sm:grid-cols-7 gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300"
               style={{ minWidth: 0 }}
             >
               <TabsTrigger value="courses" className="text-black font-medium">Course Management</TabsTrigger>
@@ -58,6 +60,8 @@ export const AdminDashboard = () => {
               <TabsTrigger value="users" className="text-black font-medium">User Management</TabsTrigger>
               <TabsTrigger value="enrollments" className="text-black font-medium">Enrollment Tracking</TabsTrigger>
               <TabsTrigger value="ratings" className="text-black font-medium">Ratings & Feedback</TabsTrigger>
+              <TabsTrigger value="points" className="text-black font-medium">Points System</TabsTrigger>
+              <TabsTrigger value="promo" className="text-black font-medium">Promo Codes</TabsTrigger>
             </TabsList>
             
             <TabsContent value="courses">
@@ -78,6 +82,14 @@ export const AdminDashboard = () => {
             
             <TabsContent value="ratings">
               <RatingsFeedbackManagement />
+            </TabsContent>
+            
+            <TabsContent value="points">
+              <PointsManagement />
+            </TabsContent>
+            
+            <TabsContent value="promo">
+              <PromoCodeVerification />
             </TabsContent>
           </Tabs>
         </div>
