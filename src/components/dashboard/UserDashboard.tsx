@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Search } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 
 export const UserDashboard = () => {
   const { user, isAdmin, signOut } = useAuth();
@@ -49,14 +48,6 @@ export const UserDashboard = () => {
               >
                 <BookOpen className="w-4 h-4 mr-2" />
                 Browse Courses
-              </Button>
-              <Button 
-                variant="outline"
-                className="border-black text-black hover:bg-gray-100"
-                onClick={() => navigate('/courses')}
-              >
-                <Search className="w-4 h-4 mr-2" />
-                Search Courses
               </Button>
             </div>
             
