@@ -48,7 +48,7 @@ export const MessageNotifications: React.FC<MessageNotificationsProps> = ({
 
   const fetchUnreadMessages = async () => {
     try {
-      // Get all user messages (non-admin messages)
+      // Get all user messages (non-admin messages) with request details
       const { data: messages, error: messagesError } = await supabase
         .from('course_messages')
         .select(`
@@ -59,14 +59,24 @@ export const MessageNotifications: React.FC<MessageNotificationsProps> = ({
             id,
             user_id,
             course_id,
-            courses(title),
-            profiles!course_access_requests_user_id_fkey(email)
+            courses(title)
           )
         `)
         .eq('is_admin_sender', false)
         .order('sent_at', { ascending: false });
 
       if (messagesError) throw messagesError;
+
+      // Get user profiles separately
+      const userIds = messages?.map(msg => msg.course_access_requests.user_id) || [];
+      const uniqueUserIds = [...new Set(userIds)];
+      
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', uniqueUserIds);
+
+      if (profilesError) throw profilesError;
 
       // Get admin responses to determine what's been "read"
       const { data: adminMessages, error: adminError } = await supabase
@@ -82,7 +92,9 @@ export const MessageNotifications: React.FC<MessageNotificationsProps> = ({
 
       messages?.forEach(message => {
         const requestId = message.course_access_request_id;
-        const userEmail = message.course_access_requests.profiles?.email || 'Unknown';
+        const userId = message.course_access_requests.user_id;
+        const userProfile = profiles?.find(p => p.id === userId);
+        const userEmail = userProfile?.email || 'Unknown';
         const courseName = message.course_access_requests.courses?.title || 'Unknown Course';
 
         // Find latest admin response for this request
