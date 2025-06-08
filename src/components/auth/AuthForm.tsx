@@ -18,12 +18,21 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+
+  // Safe auth hook usage with error handling
+  let authData = { user: null, isAdmin: false, isLoading: true };
+  try {
+    authData = useAuth();
+  } catch (error) {
+    console.error('AuthForm: Auth context not available:', error);
+  }
+
+  const { user, isAdmin, isLoading: authLoading } = authData;
 
   // Redirect authenticated users
   useEffect(() => {
     if (!authLoading && user) {
-      console.log('Redirecting authenticated user:', user.email, 'isAdmin:', isAdmin);
+      console.log('AuthForm: Redirecting authenticated user:', user.email, 'isAdmin:', isAdmin);
       if (isAdmin) {
         navigate('/admin');
       } else {
@@ -38,6 +47,7 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
 
     try {
       if (mode === 'signup') {
+        console.log('Attempting signup for:', email);
         const redirectUrl = `${window.location.origin}/`;
         
         const { error } = await supabase.auth.signUp({
@@ -52,6 +62,7 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
         });
 
         if (error) {
+          console.error('Signup error:', error);
           if (error.message.includes('already registered')) {
             toast({
               title: 'Account Already Exists',
@@ -66,18 +77,21 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
             });
           }
         } else {
+          console.log('Signup successful');
           toast({
             title: 'Account Created',
             description: 'Check your email to verify your account.',
           });
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log('Attempting signin for:', email);
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (error) {
+          console.error('Signin error:', error);
           if (error.message.includes('Invalid login credentials')) {
             toast({
               title: 'Invalid Credentials',
@@ -98,6 +112,7 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
             });
           }
         } else {
+          console.log('Signin successful:', data.user?.email);
           toast({
             title: 'Welcome back!',
             description: 'You have been signed in successfully.',
