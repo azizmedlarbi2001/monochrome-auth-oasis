@@ -12,27 +12,32 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
-  // Add error boundary for auth context
-  let authHook;
+  // Safe auth hook usage with comprehensive error handling
+  let authData;
   try {
-    authHook = useAuth();
+    authData = useAuth();
   } catch (error) {
-    console.error('ProtectedRoute: Auth context error:', error);
+    console.error('ProtectedRoute: Critical auth context error:', error);
+    // Return auth form if context is completely broken
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-black mb-4">Authentication Error</h1>
-          <p className="text-black">Please refresh the page and try again.</p>
-        </div>
-      </div>
+      <AuthForm 
+        mode={authMode} 
+        onToggleMode={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} 
+      />
     );
   }
 
-  const { user, isLoading, isAdmin } = authHook;
+  const { user, isLoading, isAdmin } = authData;
 
-  console.log('ProtectedRoute render:', { user: user?.email, isLoading, requireAdmin, isAdmin });
+  console.log('ProtectedRoute render:', { 
+    user: user?.email || 'No user', 
+    isLoading, 
+    requireAdmin, 
+    isAdmin 
+  });
 
   if (isLoading) {
+    console.log('ProtectedRoute: Loading auth state...');
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-2xl font-bold text-black">Loading...</div>
@@ -41,7 +46,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (!user) {
-    console.log('ProtectedRoute: No user, showing auth form');
+    console.log('ProtectedRoute: No user authenticated, showing auth form');
     return (
       <AuthForm 
         mode={authMode} 
@@ -51,7 +56,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (requireAdmin && !isAdmin) {
-    console.log('ProtectedRoute: Admin required but user is not admin');
+    console.log('ProtectedRoute: Admin access required but user is not admin');
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
@@ -62,6 +67,6 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
     );
   }
 
-  console.log('ProtectedRoute: Rendering protected content');
+  console.log('ProtectedRoute: All checks passed, rendering protected content');
   return <>{children}</>;
 };

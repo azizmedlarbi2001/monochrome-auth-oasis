@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { CourseManagement } from './CourseManagement';
 import { UserManagement } from './UserManagement';
 import { EnrollmentTracking } from './EnrollmentTracking';
@@ -13,8 +13,22 @@ import { PointsManagement } from './PointsManagement';
 import { PromoCodeVerification } from './PromoCodeVerification';
 
 export const AdminDashboard = () => {
-  const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    try {
+      console.log('Admin signing out');
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+      } else {
+        console.log('Admin successfully signed out');
+        navigate('/auth');
+      }
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -36,9 +50,8 @@ export const AdminDashboard = () => {
             >
               Browse Courses
             </Button>
-            <span className="text-black font-medium">{user?.email}</span>
             <Button
-              onClick={signOut}
+              onClick={handleSignOut}
               variant="outline"
               className="bg-white text-black border-2 border-black hover:bg-gray-100"
             >
