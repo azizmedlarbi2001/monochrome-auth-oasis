@@ -18,18 +18,19 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
 
   // Redirect authenticated users
   useEffect(() => {
-    if (user) {
+    if (!authLoading && user) {
+      console.log('Redirecting authenticated user:', user.email, 'isAdmin:', isAdmin);
       if (isAdmin) {
         navigate('/admin');
       } else {
         navigate('/dashboard');
       }
     }
-  }, [user, isAdmin, navigate]);
+  }, [user, isAdmin, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +38,8 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
 
     try {
       if (mode === 'signup') {
+        const redirectUrl = `${window.location.origin}/`;
+        
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -44,15 +47,24 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
             data: {
               full_name: fullName,
             },
+            emailRedirectTo: redirectUrl
           },
         });
 
         if (error) {
-          toast({
-            title: 'Sign Up Error',
-            description: error.message,
-            variant: 'destructive',
-          });
+          if (error.message.includes('already registered')) {
+            toast({
+              title: 'Account Already Exists',
+              description: 'This email is already registered. Please sign in instead.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: 'Sign Up Error',
+              description: error.message,
+              variant: 'destructive',
+            });
+          }
         } else {
           toast({
             title: 'Account Created',
@@ -66,11 +78,25 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
         });
 
         if (error) {
-          toast({
-            title: 'Sign In Error',
-            description: error.message,
-            variant: 'destructive',
-          });
+          if (error.message.includes('Invalid login credentials')) {
+            toast({
+              title: 'Invalid Credentials',
+              description: 'Please check your email and password and try again.',
+              variant: 'destructive',
+            });
+          } else if (error.message.includes('Email not confirmed')) {
+            toast({
+              title: 'Email Not Verified',
+              description: 'Please check your email and click the verification link.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: 'Sign In Error',
+              description: error.message,
+              variant: 'destructive',
+            });
+          }
         } else {
           toast({
             title: 'Welcome back!',
@@ -80,15 +106,34 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
         }
       }
     } catch (error) {
+      console.error('Authentication error:', error);
       toast({
         title: 'Error',
-        description: 'An unexpected error occurred.',
+        description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Show loading while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-2xl font-bold text-black">Loading...</div>
+      </div>
+    );
+  }
+
+  // Don't render auth form if user is authenticated (prevents flash)
+  if (user) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-2xl font-bold text-black">Redirecting...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
