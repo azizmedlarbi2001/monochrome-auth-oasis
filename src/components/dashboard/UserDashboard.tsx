@@ -78,7 +78,7 @@ export const UserDashboard = () => {
             </div>
           </div>
 
-          {/* Points Dashboard */}
+          {/* Points Dashboard - Available for ALL users */}
           <div className="bg-white border-2 border-black p-8">
             <h2 className="text-2xl font-bold text-black mb-6 flex items-center gap-2">
               <Trophy className="w-6 h-6" />
