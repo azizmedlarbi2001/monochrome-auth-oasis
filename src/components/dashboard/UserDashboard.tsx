@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -166,6 +165,7 @@ export const UserDashboard = () => {
           </button>
           <button
             onClick={() => setActiveTab('points')}
+            data-tab="points"
             className={`px-6 py-3 font-medium transition-colors ${
               activeTab === 'points'
                 ? 'bg-white border-r-2 border-black text-black'

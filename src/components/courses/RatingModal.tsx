@@ -1,131 +1,123 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Star, X } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { PointsNotification } from './PointsNotification';
 
 interface RatingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'lesson' | 'course';
+  type: 'course' | 'lesson';
   itemId: string;
   itemTitle: string;
-  onRatingSubmitted: () => void;
+  onRatingSubmitted?: () => void;
 }
 
-export const RatingModal = ({ 
-  isOpen, 
-  onClose, 
-  type, 
-  itemId, 
-  itemTitle, 
-  onRatingSubmitted 
-}: RatingModalProps) => {
+export const RatingModal: React.FC<RatingModalProps> = ({
+  isOpen,
+  onClose,
+  type,
+  itemId,
+  itemTitle,
+  onRatingSubmitted
+}) => {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [existingRating, setExistingRating] = useState<any>(null);
+  const [showPointsNotification, setShowPointsNotification] = useState(false);
+  const [pointsEarned, setPointsEarned] = useState(0);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch existing rating when modal opens
-  useEffect(() => {
-    if (isOpen && user) {
-      fetchExistingRating();
-    }
-  }, [isOpen, user, type, itemId]);
-
-  const fetchExistingRating = async () => {
-    if (!user) return;
-
-    try {
-      if (type === 'lesson') {
-        const { data, error } = await supabase
-          .from('lesson_ratings')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('lesson_id', itemId)
-          .maybeSingle();
-
-        if (error) throw error;
-        
-        if (data) {
-          setExistingRating(data);
-          setRating(data.rating);
-          setComment(data.comment || '');
-        }
-      } else {
-        const { data, error } = await supabase
-          .from('course_ratings')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('course_id', itemId)
-          .maybeSingle();
-
-        if (error) throw error;
-        
-        if (data) {
-          setExistingRating(data);
-          setRating(data.rating);
-          setComment(data.comment || '');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching existing rating:', error);
-    }
-  };
-
-  if (!isOpen) return null;
-
   const handleSubmit = async () => {
-    if (!user || rating === 0) return;
+    if (!user || rating === 0) {
+      toast({
+        title: 'Error',
+        description: 'Please select a rating before submitting.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      if (type === 'lesson') {
-        const { error } = await supabase
-          .from('lesson_ratings')
-          .upsert([
-            {
-              user_id: user.id,
-              lesson_id: itemId,
-              rating,
-              comment: comment.trim() || null
-            }
-          ], {
-            onConflict: 'user_id,lesson_id'
+      const tableName = type === 'course' ? 'course_ratings' : 'lesson_ratings';
+      const columnName = type === 'course' ? 'course_id' : 'lesson_id';
+
+      // Submit the rating
+      const { error: ratingError } = await supabase
+        .from(tableName)
+        .insert({
+          user_id: user.id,
+          [columnName]: itemId,
+          rating,
+          comment: comment.trim() || null,
+        });
+
+      if (ratingError) throw ratingError;
+
+      // Award points for feedback (5 points for ratings)
+      const feedbackPoints = 5;
+      
+      // Update user points
+      const { error: pointsError } = await supabase
+        .from('user_points')
+        .upsert({
+          user_id: user.id,
+          total_points: supabase.raw('COALESCE(total_points, 0) + ?', [feedbackPoints]),
+          available_points: supabase.raw('COALESCE(available_points, 0) + ?', [feedbackPoints]),
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (pointsError) {
+        // If upsert fails, try insert
+        const { error: insertError } = await supabase
+          .from('user_points')
+          .insert({
+            user_id: user.id,
+            total_points: feedbackPoints,
+            available_points: feedbackPoints,
           });
 
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('course_ratings')
-          .upsert([
-            {
-              user_id: user.id,
-              course_id: itemId,
-              rating,
-              comment: comment.trim() || null
-            }
-          ], {
-            onConflict: 'user_id,course_id'
-          });
-
-        if (error) throw error;
+        if (insertError) {
+          console.error('Points error:', insertError);
+        }
       }
 
+      // Record the transaction
+      await supabase
+        .from('points_transactions')
+        .insert({
+          user_id: user.id,
+          points_change: feedbackPoints,
+          transaction_type: 'earned',
+          description: `Feedback points for ${type}: ${itemTitle}`,
+        });
+
+      setPointsEarned(feedbackPoints);
+      
       toast({
-        title: existingRating ? 'Rating Updated' : 'Rating Submitted',
-        description: `Thank you for ${existingRating ? 'updating your rating for' : 'rating'} this ${type}!`,
+        title: 'Thank you!',
+        description: 'Your rating has been submitted successfully.',
       });
 
-      onRatingSubmitted();
+      if (onRatingSubmitted) {
+        onRatingSubmitted();
+      }
+
+      // Close the rating modal and show points notification
       onClose();
-      resetForm();
+      setShowPointsNotification(true);
+      
+      // Reset form
+      setRating(0);
+      setComment('');
     } catch (error) {
       console.error('Error submitting rating:', error);
       toast({
@@ -138,87 +130,80 @@ export const RatingModal = ({
     }
   };
 
-  const resetForm = () => {
-    setRating(0);
-    setComment('');
-    setExistingRating(null);
-  };
-
-  const handleClose = () => {
-    onClose();
-    resetForm();
+  const renderStars = () => {
+    return (
+      <div className="flex gap-1 justify-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => setRating(star)}
+            className="p-1 hover:scale-110 transition-transform"
+          >
+            <Star
+              className={`w-8 h-8 ${
+                star <= rating
+                  ? 'fill-yellow-400 text-yellow-400'
+                  : 'text-gray-300 hover:text-yellow-300'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md mx-4 border-2 border-black">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <CardTitle className="text-black">
-              {existingRating ? 'Update Your Rating' : `Rate ${type === 'lesson' ? 'Lesson' : 'Course'}`}
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={handleClose}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-          <p className="text-gray-600 text-sm">{itemTitle}</p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Your Rating *
-            </label>
-            <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRating(star)}
-                  className="p-1"
-                >
-                  <Star
-                    className={`w-6 h-6 ${
-                      star <= rating
-                        ? 'fill-yellow-400 text-yellow-400'
-                        : 'text-gray-300'
-                    }`}
-                  />
-                </button>
-              ))}
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">
+              Rate this {type === 'course' ? 'Course' : 'Lesson'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="text-center">
+              <h3 className="font-medium mb-2">{itemTitle}</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                How would you rate this {type}?
+              </p>
+              {renderStars()}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Comments (optional)
+              </label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder={`Share your thoughts about this ${type}...`}
+                className="min-h-[80px]"
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSubmit}
+                disabled={rating === 0 || isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Rating'}
+              </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          <div>
-            <label className="block text-sm font-medium text-black mb-2">
-              Comment (Optional)
-            </label>
-            <Textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              placeholder="Share your thoughts about this lesson..."
-              className="border-2 border-black"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              onClick={handleSubmit}
-              disabled={rating === 0 || isSubmitting}
-              className="flex-1 bg-black text-white hover:bg-gray-800"
-            >
-              {isSubmitting ? 'Submitting...' : existingRating ? 'Update Rating' : 'Submit Rating'}
-            </Button>
-            <Button
-              onClick={handleClose}
-              variant="outline"
-              className="border-black text-black hover:bg-gray-100"
-            >
-              Cancel
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      <PointsNotification
+        isOpen={showPointsNotification}
+        onClose={() => setShowPointsNotification(false)}
+        pointsEarned={pointsEarned}
+        courseName={itemTitle}
+      />
+    </>
   );
 };
