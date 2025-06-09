@@ -15,7 +15,11 @@ export const UserDashboard = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'requests':
-        return <UserAccessRequestsSection />;
+        return (
+          <div className="bg-white border-2 border-black p-8">
+            <UserAccessRequestsSection />
+          </div>
+        );
       case 'points':
         return (
           <div className="bg-white border-2 border-black p-8">
@@ -55,6 +59,13 @@ export const UserDashboard = () => {
                   <p className="text-black"><strong>Role:</strong> {isAdmin ? 'Admin' : 'User'}</p>
                 </div>
                 
+                <div className="border-2 border-black p-6">
+                  <h3 className="text-xl font-bold text-black mb-2">Quick Stats</h3>
+                  <p className="text-black mb-2">📚 Access messaging from Course Requests tab</p>
+                  <p className="text-black mb-2">🏆 Check your points in Rewards & Points tab</p>
+                  <p className="text-black">🎯 Complete courses to earn more rewards!</p>
+                </div>
+                
                 {isAdmin && (
                   <div className="border-2 border-black p-6">
                     <h3 className="text-xl font-bold text-black mb-2">Admin Access</h3>
@@ -81,8 +92,8 @@ export const UserDashboard = () => {
                 <div className="flex items-center gap-4">
                   <MessageCircle className="w-8 h-8 text-blue-600" />
                   <div>
-                    <h3 className="text-xl font-bold text-black">Course Requests</h3>
-                    <p className="text-gray-600">View and manage your course access requests</p>
+                    <h3 className="text-xl font-bold text-black">Course Requests & Messaging</h3>
+                    <p className="text-gray-600">Request course access and message admins</p>
                   </div>
                 </div>
               </div>

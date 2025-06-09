@@ -18,16 +18,9 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
 
-  // Safe auth hook usage with error handling
-  let authData = { user: null, isAdmin: false, isLoading: true };
-  try {
-    authData = useAuth();
-  } catch (error) {
-    console.error('AuthForm: Auth context not available:', error);
-  }
-
-  const { user, isAdmin, isLoading: authLoading } = authData;
+  console.log('AuthForm render:', { user: user?.email, isAdmin, authLoading, mode });
 
   // Redirect authenticated users
   useEffect(() => {
@@ -50,7 +43,7 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
         console.log('Attempting signup for:', email);
         const redirectUrl = `${window.location.origin}/`;
         
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -77,11 +70,18 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
             });
           }
         } else {
-          console.log('Signup successful');
-          toast({
-            title: 'Account Created',
-            description: 'Check your email to verify your account.',
-          });
+          console.log('Signup successful:', data);
+          if (data.user && !data.user.email_confirmed_at) {
+            toast({
+              title: 'Account Created',
+              description: 'Check your email to verify your account.',
+            });
+          } else {
+            toast({
+              title: 'Account Created',
+              description: 'You can now sign in.',
+            });
+          }
         }
       } else {
         console.log('Attempting signin for:', email);

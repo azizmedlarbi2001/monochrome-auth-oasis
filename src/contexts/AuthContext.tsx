@@ -24,37 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     console.log('AuthProvider: Initializing auth context');
     
-    // Get initial session
-    const initializeAuth = async () => {
-      try {
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting initial session:', error);
-        } else {
-          console.log('Initial session check:', initialSession?.user?.email || 'No session');
-          
-          if (mounted) {
-            setSession(initialSession);
-            setUser(initialSession?.user ?? null);
-            
-            if (initialSession?.user) {
-              checkAdminStatus(initialSession.user.id);
-            } else {
-              setIsAdmin(false);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    // Set up auth state listener
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.email || 'No user');
@@ -64,21 +34,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setUser(session?.user ?? null);
           
           if (session?.user) {
-            checkAdminStatus(session.user.id);
+            await checkAdminStatus(session.user.id);
           } else {
             setIsAdmin(false);
           }
           
-          // Only set loading to false after auth state change is processed
-          if (event === 'INITIAL_SESSION') {
-            setIsLoading(false);
-          }
+          // Set loading to false after processing auth change
+          setIsLoading(false);
         }
       }
     );
 
-    // Initialize auth
-    initializeAuth();
+    // THEN get initial session
+    const getInitialSession = async () => {
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting initial session:', error);
+        } else {
+          console.log('Initial session check:', initialSession?.user?.email || 'No session');
+        }
+        
+        if (mounted && !initialSession) {
+          // Only set loading to false if no session and auth state change hasn't fired
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    getInitialSession();
 
     return () => {
       mounted = false;
