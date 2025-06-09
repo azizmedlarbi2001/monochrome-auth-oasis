@@ -46,20 +46,30 @@ export const RatingModal: React.FC<RatingModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const tableName = type === 'course' ? 'course_ratings' : 'lesson_ratings';
-      const columnName = type === 'course' ? 'course_id' : 'lesson_id';
+      // Submit the rating with proper type-safe data structure
+      if (type === 'course') {
+        const { error: ratingError } = await supabase
+          .from('course_ratings')
+          .insert({
+            user_id: user.id,
+            course_id: itemId,
+            rating,
+            comment: comment.trim() || null,
+          });
 
-      // Submit the rating
-      const { error: ratingError } = await supabase
-        .from(tableName)
-        .insert({
-          user_id: user.id,
-          [columnName]: itemId,
-          rating,
-          comment: comment.trim() || null,
-        });
+        if (ratingError) throw ratingError;
+      } else {
+        const { error: ratingError } = await supabase
+          .from('lesson_ratings')
+          .insert({
+            user_id: user.id,
+            lesson_id: itemId,
+            rating,
+            comment: comment.trim() || null,
+          });
 
-      if (ratingError) throw ratingError;
+        if (ratingError) throw ratingError;
+      }
 
       // Award points for feedback (5 points for ratings)
       const feedbackPoints = 5;
