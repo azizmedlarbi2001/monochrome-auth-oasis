@@ -19,57 +19,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    console.log('AuthProvider: Initializing auth context');
-    
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email || 'No user');
-        
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await checkAdminStatus(session.user.id);
-        } else {
-          setIsAdmin(false);
-        }
-        
-        setIsLoading(false);
-      }
-    );
-
-    // Get initial session
-    const getInitialSession = async () => {
-      try {
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting initial session:', error);
-          setIsLoading(false);
-          return;
-        }
-        
-        console.log('Initial session check:', initialSession?.user?.email || 'No session');
-        
-        // Only set loading to false if no session found (auth state change will handle session cases)
-        if (!initialSession) {
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        setIsLoading(false);
-      }
-    };
-
-    getInitialSession();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
   const checkAdminStatus = async (userId: string) => {
     try {
       console.log('Checking admin status for user:', userId);
@@ -93,6 +42,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsAdmin(false);
     }
   };
+
+  useEffect(() => {
+    console.log('AuthProvider: Initializing auth context');
+    
+    let isMounted = true;
+
+    // Get initial session first
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting initial session:', error);
+        } else {
+          console.log('Initial session:', initialSession?.user?.email || 'No session');
+          
+          if (isMounted) {
+            setSession(initialSession);
+            setUser(initialSession?.user ?? null);
+            
+            if (initialSession?.user) {
+              await checkAdminStatus(initialSession.user.id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.email || 'No user');
+        
+        if (isMounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await checkAdminStatus(session.user.id);
+          } else {
+            setIsAdmin(false);
+          }
+          
+          setIsLoading(false);
+        }
+      }
+    );
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const signOut = async () => {
     try {
@@ -128,7 +138,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    console.error('useAuth must be used within an AuthProvider');
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

@@ -11,23 +11,7 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-
-  // Safe auth hook usage with comprehensive error handling
-  let authData;
-  try {
-    authData = useAuth();
-  } catch (error) {
-    console.error('ProtectedRoute: Critical auth context error:', error);
-    // Return auth form if context is completely broken
-    return (
-      <AuthForm 
-        mode={authMode} 
-        onToggleMode={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')} 
-      />
-    );
-  }
-
-  const { user, isLoading, isAdmin } = authData;
+  const { user, isLoading, isAdmin } = useAuth();
 
   console.log('ProtectedRoute render:', { 
     user: user?.email || 'No user', 
