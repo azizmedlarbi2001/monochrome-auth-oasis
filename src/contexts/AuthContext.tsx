@@ -20,58 +20,52 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    
     console.log('AuthProvider: Initializing auth context');
     
-    // Set up auth state listener FIRST
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session?.user?.email || 'No user');
         
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          
-          if (session?.user) {
-            await checkAdminStatus(session.user.id);
-          } else {
-            setIsAdmin(false);
-          }
-          
-          // Set loading to false after processing auth change
-          setIsLoading(false);
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await checkAdminStatus(session.user.id);
+        } else {
+          setIsAdmin(false);
         }
+        
+        setIsLoading(false);
       }
     );
 
-    // THEN get initial session
+    // Get initial session
     const getInitialSession = async () => {
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error getting initial session:', error);
-        } else {
-          console.log('Initial session check:', initialSession?.user?.email || 'No session');
+          setIsLoading(false);
+          return;
         }
         
-        if (mounted && !initialSession) {
-          // Only set loading to false if no session and auth state change hasn't fired
+        console.log('Initial session check:', initialSession?.user?.email || 'No session');
+        
+        // Only set loading to false if no session found (auth state change will handle session cases)
+        if (!initialSession) {
           setIsLoading(false);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
+        setIsLoading(false);
       }
     };
 
     getInitialSession();
 
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

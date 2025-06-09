@@ -18,7 +18,17 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
+
+  // Safe auth hook usage with error handling
+  let authData;
+  try {
+    authData = useAuth();
+  } catch (error) {
+    console.error('AuthForm: Auth context not available:', error);
+    authData = { user: null, isAdmin: false, isLoading: false };
+  }
+
+  const { user, isAdmin, isLoading: authLoading } = authData;
 
   console.log('AuthForm render:', { user: user?.email, isAdmin, authLoading, mode });
 
