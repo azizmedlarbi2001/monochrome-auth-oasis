@@ -69,7 +69,10 @@ export const CourseDiscovery = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (coursesError) throw coursesError;
+      if (coursesError) {
+        console.error('Courses error:', coursesError);
+        throw coursesError;
+      }
 
       // Fetch user's enrollments
       const { data: enrollments, error: enrollmentsError } = await supabase
@@ -80,7 +83,10 @@ export const CourseDiscovery = () => {
         `)
         .eq('user_id', user.id);
 
-      if (enrollmentsError) throw enrollmentsError;
+      if (enrollmentsError) {
+        console.error('Enrollments error:', enrollmentsError);
+        throw enrollmentsError;
+      }
 
       // Fetch user's access requests
       const { data: requests, error: requestsError } = await supabase
@@ -88,7 +94,12 @@ export const CourseDiscovery = () => {
         .select('*')
         .eq('user_id', user.id);
 
-      if (requestsError) throw requestsError;
+      if (requestsError) {
+        console.error('Requests error:', requestsError);
+        throw requestsError;
+      }
+
+      console.log('Fetched data:', { courses, enrollments, requests });
 
       setAvailableCourses(courses || []);
       setMyEnrollments(enrollments || []);
