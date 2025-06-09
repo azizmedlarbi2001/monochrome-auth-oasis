@@ -65,18 +65,25 @@ export const RatingModal: React.FC<RatingModalProps> = ({
       const feedbackPoints = 5;
       
       // Update user points
-      const { error: pointsError } = await supabase
+      const { data: existingPoints } = await supabase
         .from('user_points')
-        .upsert({
-          user_id: user.id,
-          total_points: supabase.raw('COALESCE(total_points, 0) + ?', [feedbackPoints]),
-          available_points: supabase.raw('COALESCE(available_points, 0) + ?', [feedbackPoints]),
-        }, {
-          onConflict: 'user_id'
-        });
+        .select('total_points, available_points')
+        .eq('user_id', user.id)
+        .single();
 
-      if (pointsError) {
-        // If upsert fails, try insert
+      if (existingPoints) {
+        // Update existing points
+        const { error: updateError } = await supabase
+          .from('user_points')
+          .update({
+            total_points: existingPoints.total_points + feedbackPoints,
+            available_points: existingPoints.available_points + feedbackPoints,
+          })
+          .eq('user_id', user.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Insert new points record
         const { error: insertError } = await supabase
           .from('user_points')
           .insert({
@@ -85,9 +92,7 @@ export const RatingModal: React.FC<RatingModalProps> = ({
             available_points: feedbackPoints,
           });
 
-        if (insertError) {
-          console.error('Points error:', insertError);
-        }
+        if (insertError) throw insertError;
       }
 
       // Record the transaction

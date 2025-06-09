@@ -43,6 +43,7 @@ export const CourseDiscovery = () => {
   const [myRequests, setMyRequests] = useState<AccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showMyRequests, setShowMyRequests] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const { user, isAdmin, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -212,7 +213,50 @@ export const CourseDiscovery = () => {
         <div className="max-w-6xl mx-auto">
           {/* Show access requests if toggled */}
           {showMyRequests ? (
-            <UserAccessRequests />
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <Button
+                  onClick={() => setShowMyRequests(false)}
+                  variant="outline"
+                  className="border-black"
+                >
+                  ← Back to Courses
+                </Button>
+                <h2 className="text-2xl font-bold text-black">My Course Requests</h2>
+              </div>
+              
+              {selectedCourseId ? (
+                <UserAccessRequests courseId={selectedCourseId} />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {myRequests.map((request) => {
+                    const course = availableCourses.find(c => c.id === request.course_id);
+                    if (!course) return null;
+                    
+                    return (
+                      <Card key={request.id} className="border-2 border-black">
+                        <CardHeader>
+                          <CardTitle className="text-black">{course.title}</CardTitle>
+                          <Badge variant="outline" className="w-fit">
+                            {request.status}
+                          </Badge>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-gray-700 mb-4 line-clamp-3">{course.description}</p>
+                          <Button
+                            onClick={() => setSelectedCourseId(request.course_id)}
+                            className="w-full bg-black text-white hover:bg-gray-800"
+                          >
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            View Messages
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ) : (
             <>
               {/* Search Bar */}

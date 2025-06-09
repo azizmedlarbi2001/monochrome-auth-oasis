@@ -13,7 +13,7 @@ interface AccessRequest {
   id: string;
   status: 'pending' | 'approved' | 'rejected';
   message: string;
-  created_at: string;
+  requested_at: string;
   course_id: string;
   courses: {
     title: string;
@@ -22,9 +22,9 @@ interface AccessRequest {
 
 interface RequestMessage {
   id: string;
-  message: string;
-  is_from_user: boolean;
-  created_at: string;
+  message_text: string;
+  is_admin_sender: boolean;
+  sent_at: string;
   sender_name?: string;
 }
 
@@ -51,14 +51,14 @@ export const UserAccessRequests: React.FC<UserAccessRequestsProps> = ({ courseId
 
     try {
       const { data, error } = await supabase
-        .from('access_requests')
+        .from('course_access_requests')
         .select(`
           *,
           courses(title)
         `)
         .eq('user_id', user.id)
         .eq('course_id', courseId)
-        .order('created_at', { ascending: false });
+        .order('requested_at', { ascending: false });
 
       if (error) throw error;
 
@@ -83,19 +83,22 @@ export const UserAccessRequests: React.FC<UserAccessRequestsProps> = ({ courseId
   const fetchMessages = async (requestId: string) => {
     try {
       const { data, error } = await supabase
-        .from('request_messages')
+        .from('course_messages')
         .select(`
           *,
           profiles(full_name)
         `)
-        .eq('request_id', requestId)
-        .order('created_at', { ascending: true });
+        .eq('course_access_request_id', requestId)
+        .order('sent_at', { ascending: true });
 
       if (error) throw error;
 
       const formattedMessages = data.map(msg => ({
-        ...msg,
-        sender_name: msg.profiles?.full_name || (msg.is_from_user ? 'You' : 'Admin')
+        id: msg.id,
+        message_text: msg.message_text || '',
+        is_admin_sender: msg.is_admin_sender,
+        sent_at: msg.sent_at,
+        sender_name: msg.is_admin_sender ? 'Admin' : 'You'
       }));
 
       setMessages(prev => ({
@@ -114,12 +117,12 @@ export const UserAccessRequests: React.FC<UserAccessRequestsProps> = ({ courseId
     setIsLoading(true);
     try {
       const { error } = await supabase
-        .from('request_messages')
+        .from('course_messages')
         .insert({
-          request_id: requestId,
-          user_id: user.id,
-          message: messageText,
-          is_from_user: true,
+          course_access_request_id: requestId,
+          sender_id: user.id,
+          message_text: messageText,
+          is_admin_sender: false,
         });
 
       if (error) throw error;
@@ -153,7 +156,7 @@ export const UserAccessRequests: React.FC<UserAccessRequestsProps> = ({ courseId
     setIsLoading(true);
     try {
       const { error } = await supabase
-        .from('access_requests')
+        .from('course_access_requests')
         .insert({
           user_id: user.id,
           course_id: courseId,
@@ -250,7 +253,7 @@ export const UserAccessRequests: React.FC<UserAccessRequestsProps> = ({ courseId
           <CardContent className="space-y-4">
             <div>
               <p className="text-sm text-gray-600">
-                Requested on: {new Date(request.created_at).toLocaleDateString()}
+                Requested on: {new Date(request.requested_at).toLocaleDateString()}
               </p>
               <p className="text-sm font-medium">{request.message}</p>
             </div>
@@ -264,14 +267,14 @@ export const UserAccessRequests: React.FC<UserAccessRequestsProps> = ({ courseId
                     <div
                       key={message.id}
                       className={`p-2 rounded ${
-                        message.is_from_user
+                        !message.is_admin_sender
                           ? 'bg-blue-100 ml-8 text-right'
                           : 'bg-white mr-8'
                       }`}
                     >
-                      <p className="text-sm">{message.message}</p>
+                      <p className="text-sm">{message.message_text}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {message.sender_name} • {new Date(message.created_at).toLocaleString()}
+                        {message.sender_name} • {new Date(message.sent_at).toLocaleString()}
                       </p>
                     </div>
                   ))}
