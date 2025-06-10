@@ -19,6 +19,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  const clearAuthState = () => {
+    setUser(null);
+    setSession(null);
+    setIsAdmin(false);
+    setIsLoading(false);
+  };
+
   const checkAdminStatus = async (userId: string) => {
     try {
       console.log('Checking admin status for user:', userId);
@@ -56,20 +63,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (!isMounted) return;
 
-        // Update session and user state
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        
-        // Handle admin status check
-        if (newSession?.user) {
-          // Use setTimeout to prevent potential deadlocks
-          setTimeout(() => {
-            if (isMounted) {
-              checkAdminStatus(newSession.user.id);
-            }
-          }, 100);
-        } else {
-          setIsAdmin(false);
+        // Handle different auth events
+        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !newSession) {
+          console.log('User signed out or token refresh failed, clearing state');
+          clearAuthState();
+          return;
+        }
+
+        if (event === 'SIGNED_IN' || (event === 'TOKEN_REFRESHED' && newSession)) {
+          console.log('User signed in or token refreshed successfully');
+          setSession(newSession);
+          setUser(newSession?.user ?? null);
+          
+          if (newSession?.user) {
+            // Use setTimeout to prevent potential deadlocks
+            setTimeout(() => {
+              if (isMounted) {
+                checkAdminStatus(newSession.user.id);
+              }
+            }, 100);
+          } else {
+            setIsAdmin(false);
+          }
         }
         
         // Mark loading as complete
@@ -77,16 +92,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
+    // THEN check for existing session with error handling
     const getInitialSession = async () => {
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error getting initial session:', error);
-        } else {
-          console.log('Initial session found:', initialSession?.user?.email || 'No session');
+          // If there's an error getting the session (like invalid refresh token), clear everything
+          if (error.message.includes('refresh_token_not_found') || error.message.includes('Invalid Refresh Token')) {
+            console.log('Invalid refresh token detected, clearing auth state');
+            await supabase.auth.signOut({ scope: 'local' }); // Clear local storage only
+            clearAuthState();
+            return;
+          }
         }
+        
+        console.log('Initial session found:', initialSession?.user?.email || 'No session');
         
         if (isMounted && !initialSession) {
           // No session found, mark loading as complete
@@ -94,9 +116,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         // If session exists, the onAuthStateChange will handle it
       } catch (error) {
-        console.error('Error getting initial session:', error);
+        console.error('Exception getting initial session:', error);
+        // Handle any unexpected errors by clearing state
         if (isMounted) {
-          setIsLoading(false);
+          clearAuthState();
         }
       }
     };
@@ -120,14 +143,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } else {
         console.log('Successfully signed out');
         // Reset state immediately
-        setUser(null);
-        setSession(null);
-        setIsAdmin(false);
+        clearAuthState();
       }
     } catch (error) {
       console.error('Exception during sign out:', error);
-    } finally {
-      setIsLoading(false);
+      // Even if sign out fails, clear local state
+      clearAuthState();
     }
   };
 
