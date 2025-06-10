@@ -9,14 +9,12 @@ const AuthPage = () => {
   const { user, isAdmin, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect authenticated users
+  // Redirect authenticated users - but only when auth is fully loaded
   useEffect(() => {
     if (!isLoading && user) {
-      if (isAdmin) {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      console.log('AuthPage: Redirecting authenticated user:', user.email, 'isAdmin:', isAdmin);
+      const redirectPath = isAdmin ? '/admin' : '/dashboard';
+      navigate(redirectPath, { replace: true });
     }
   }, [user, isAdmin, isLoading, navigate]);
 

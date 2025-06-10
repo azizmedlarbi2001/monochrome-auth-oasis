@@ -22,15 +22,12 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
 
   console.log('AuthForm render:', { user: user?.email, isAdmin, authLoading, mode });
 
-  // Redirect authenticated users
+  // Redirect authenticated users - but only when auth is fully loaded
   useEffect(() => {
     if (!authLoading && user) {
       console.log('AuthForm: Redirecting authenticated user:', user.email, 'isAdmin:', isAdmin);
-      if (isAdmin) {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      const redirectPath = isAdmin ? '/admin' : '/dashboard';
+      navigate(redirectPath, { replace: true });
     }
   }, [user, isAdmin, authLoading, navigate]);
 
@@ -74,7 +71,7 @@ export const AuthForm = ({ mode, onToggleMode }: AuthFormProps) => {
           if (data.user && !data.user.email_confirmed_at) {
             toast({
               title: 'Account Created',
-              description: 'Check your email to verify your account.',
+              description: 'Check your email to verify your account before signing in.',
             });
           } else {
             toast({
