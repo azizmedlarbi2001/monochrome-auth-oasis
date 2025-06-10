@@ -56,6 +56,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     let isMounted = true;
 
+    // Clear any existing invalid sessions first
+    const clearInvalidSession = async () => {
+      try {
+        // Try to get the current session to test if tokens are valid
+        const { data: { session: testSession }, error } = await supabase.auth.getSession();
+        
+        if (error && (error.message.includes('refresh_token_not_found') || error.message.includes('Invalid Refresh Token'))) {
+          console.log('Detected invalid tokens, clearing localStorage');
+          // Force clear the session from localStorage
+          await supabase.auth.signOut({ scope: 'local' });
+          if (isMounted) {
+            clearAuthState();
+          }
+          return true; // Indicates we cleared invalid session
+        }
+        return false; // No clearing needed
+      } catch (error) {
+        console.error('Error during session validation:', error);
+        if (isMounted) {
+          clearAuthState();
+        }
+        return true;
+      }
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
@@ -64,7 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (!isMounted) return;
 
         // Handle different auth events
-        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !newSession) {
+        if (event === 'SIGNED_OUT' || (event === 'TOKEN_REFRESHED' && !newSession)) {
           console.log('User signed out or token refresh failed, clearing state');
           clearAuthState();
           return;
@@ -92,20 +117,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     );
 
-    // THEN check for existing session with error handling
-    const getInitialSession = async () => {
+    // Initialize auth state
+    const initializeAuth = async () => {
+      // First clear any invalid sessions
+      const wasCleared = await clearInvalidSession();
+      
+      if (wasCleared) {
+        // If we cleared invalid tokens, we're done - user needs to sign in fresh
+        return;
+      }
+
+      // If no clearing was needed, check for valid existing session
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Error getting initial session:', error);
-          // If there's an error getting the session (like invalid refresh token), clear everything
-          if (error.message.includes('refresh_token_not_found') || error.message.includes('Invalid Refresh Token')) {
-            console.log('Invalid refresh token detected, clearing auth state');
-            await supabase.auth.signOut({ scope: 'local' }); // Clear local storage only
+          if (isMounted) {
             clearAuthState();
-            return;
           }
+          return;
         }
         
         console.log('Initial session found:', initialSession?.user?.email || 'No session');
@@ -117,14 +148,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // If session exists, the onAuthStateChange will handle it
       } catch (error) {
         console.error('Exception getting initial session:', error);
-        // Handle any unexpected errors by clearing state
         if (isMounted) {
           clearAuthState();
         }
       }
     };
 
-    getInitialSession();
+    initializeAuth();
 
     return () => {
       console.log('AuthProvider: Cleaning up');
