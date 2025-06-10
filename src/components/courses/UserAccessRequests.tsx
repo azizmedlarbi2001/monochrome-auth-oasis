@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,11 +61,17 @@ export const UserAccessRequests: React.FC<UserAccessRequestsProps> = ({ courseId
 
       if (error) throw error;
 
-      setRequests(data || []);
+      // Type-safe casting to ensure status field matches our interface
+      const typedRequests = (data || []).map(request => ({
+        ...request,
+        status: (request.status || 'pending') as 'pending' | 'approved' | 'rejected'
+      }));
+
+      setRequests(typedRequests);
       
       // Fetch messages for each request
-      if (data && data.length > 0) {
-        for (const request of data) {
+      if (typedRequests && typedRequests.length > 0) {
+        for (const request of typedRequests) {
           await fetchMessages(request.id);
         }
       }
