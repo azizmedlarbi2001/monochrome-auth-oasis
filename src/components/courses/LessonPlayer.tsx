@@ -9,6 +9,7 @@ import { MCQQuiz } from './MCQQuiz';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useStreakTracking } from '@/hooks/useStreakTracking';
 
 interface Lesson {
   id: string;
@@ -21,11 +22,11 @@ interface Lesson {
 
 interface LessonPlayerProps {
   lesson: Lesson;
+  onComplete: () => void;
   isCompleted: boolean;
-  onMarkComplete: () => void;
 }
 
-export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlayerProps) => {
+export const LessonPlayer: React.FC<LessonPlayerProps> = ({ lesson, onComplete, isCompleted }) => {
   const [showVideo, setShowVideo] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
@@ -37,6 +38,8 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { trackLessonStudy } = useStreakTracking();
+  const hasTrackedStudy = React.useRef(false);
 
   useEffect(() => {
     checkIfUserHasRated();
@@ -140,7 +143,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
           .upsert([progressData]);
 
         if (error) throw error;
-        onMarkComplete();
+        onComplete();
       } catch (error) {
         console.error('Error updating progress:', error);
         toast({
@@ -176,7 +179,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
         .upsert([progressData]);
 
       if (error) throw error;
-      onMarkComplete();
+      onComplete();
     } catch (error) {
       console.error('Error marking lesson as completed:', error);
       toast({
@@ -202,7 +205,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
       if (!hasMcqQuestions) {
         markLessonAsCompleted();
       } else {
-        onMarkComplete();
+        onComplete();
       }
     }
   };
@@ -213,7 +216,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
     if (!hasMcqQuestions) {
       markLessonAsCompleted();
     } else {
-      onMarkComplete();
+      onComplete();
     }
   };
 
@@ -260,6 +263,14 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
   };
 
   const embedUrl = getEmbedUrl(lesson.video_url);
+
+  const handleVideoProgress = (progress: { played: number; playedSeconds: number }) => {
+    // Track lesson study for streak when user watches significant portion
+    if (progress.played > 0.1 && !hasTrackedStudy.current) {
+      trackLessonStudy();
+      hasTrackedStudy.current = true;
+    }
+  };
 
   return (
     <div className="p-6">

@@ -5,11 +5,15 @@ import { useNavigate } from 'react-router-dom';
 import { BookOpen, Star, Trophy, MessageCircle, FileText } from 'lucide-react';
 import { PointsDashboard } from '../user/PointsDashboard';
 import { UserAccessRequestsSection } from '../user/UserAccessRequestsSection';
+import { useStreakTracking } from '@/hooks/useStreakTracking';
 
 export const UserDashboard = () => {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'requests' | 'points'>('overview');
+  
+  // Initialize streak tracking for daily login
+  useStreakTracking();
 
   const renderTabContent = () => {
     switch (activeTab) {

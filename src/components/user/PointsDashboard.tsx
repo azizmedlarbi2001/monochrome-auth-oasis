@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { StreakDisplay } from './StreakDisplay';
 import { Star, Gift, TrendingUp, Clock } from 'lucide-react';
 
 interface UserPoints {
@@ -189,6 +190,9 @@ export const PointsDashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Streak Display - New */}
+      <StreakDisplay />
+
       {/* Points Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-2 border-yellow-500">
