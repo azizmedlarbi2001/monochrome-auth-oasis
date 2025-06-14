@@ -46,14 +46,12 @@ const Index = () => {
             <p className="text-xl text-black mb-8">
               Ready to continue your learning journey?
             </p>
-            <div className="space-x-4">
-              <Button
-                onClick={() => navigate('/courses')}
-                className="bg-black text-white hover:bg-gray-800 border-2 border-black px-8 py-3 text-lg"
-              >
-                Browse Courses
-              </Button>
-            </div>
+            <Button
+              onClick={() => navigate('/courses')}
+              className="bg-black text-white hover:bg-gray-800 border-2 border-black px-8 py-3 text-lg"
+            >
+              Browse Courses
+            </Button>
           </div>
         </div>
       </div>
@@ -67,14 +65,12 @@ const Index = () => {
         <p className="text-xl text-black mb-8">
           Discover and access premium courses with instructor approval.
         </p>
-        <div className="space-x-4">
-          <Button
-            onClick={() => navigate('/auth')}
-            className="bg-black text-white hover:bg-gray-800 border-2 border-black px-8 py-3 text-lg"
-          >
-            Get Started
-          </Button>
-        </div>
+        <Button
+          onClick={() => navigate('/auth')}
+          className="bg-black text-white hover:bg-gray-800 border-2 border-black px-8 py-3 text-lg"
+        >
+          Get Started
+        </Button>
         
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="border-2 border-black p-6">
