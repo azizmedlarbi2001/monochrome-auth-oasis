@@ -439,7 +439,7 @@ export const CourseViewer = () => {
             <LessonPlayer
               lesson={selectedLesson}
               isCompleted={!!getLessonProgress(selectedLesson.id)?.completed}
-              onMarkComplete={() => markLessonComplete(selectedLesson.id)}
+              onComplete={() => markLessonComplete(selectedLesson.id)}
             />
           ) : (
             <div className="flex items-center justify-center h-96">

@@ -222,7 +222,7 @@ export const AdminCourseViewer = () => {
             <LessonPlayer
               lesson={selectedLesson}
               isCompleted={false}
-              onMarkComplete={() => {
+              onComplete={() => {
                 toast({
                   title: 'Admin Preview',
                   description: 'This is a preview. Progress is not saved for admins.',
