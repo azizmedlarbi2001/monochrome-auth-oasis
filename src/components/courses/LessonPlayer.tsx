@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +31,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
   const [showQuiz, setShowQuiz] = useState(false);
   const [hasRated, setHasRated] = useState(false);
   const [hasPassedQuiz, setHasPassedQuiz] = useState(false);
+  const [hasMcqQuestions, setHasMcqQuestions] = useState(false);
   const [quizScore, setQuizScore] = useState<{ score: number; total: number } | null>(null);
   const [videoCompleted, setVideoCompleted] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -41,6 +41,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
   useEffect(() => {
     checkIfUserHasRated();
     checkQuizStatus();
+    checkMcqQuestions();
   }, [lesson.id, user]);
 
   // Listen for video completion events
@@ -66,7 +67,7 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
         .select('id')
         .eq('user_id', user.id)
         .eq('lesson_id', lesson.id)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
       setHasRated(!!data);
@@ -84,16 +85,32 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
         .select('mcq_score, mcq_total')
         .eq('user_id', user.id)
         .eq('lesson_id', lesson.id)
-        .single();
+        .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
       
       if (data) {
         setQuizScore({ score: data.mcq_score, total: data.mcq_total });
-        setHasPassedQuiz(data.mcq_score >= Math.ceil(data.mcq_total * 0.5)); // Changed to 50%
+        setHasPassedQuiz(data.mcq_score >= Math.ceil(data.mcq_total * 0.5));
       }
     } catch (error) {
       console.error('Error checking quiz status:', error);
+    }
+  };
+
+  const checkMcqQuestions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mcq_questions')
+        .select('id')
+        .eq('lesson_id', lesson.id)
+        .limit(1);
+
+      if (error) throw error;
+      setHasMcqQuestions((data || []).length > 0);
+    } catch (error) {
+      console.error('Error checking MCQ questions:', error);
+      setHasMcqQuestions(false);
     }
   };
 
@@ -141,22 +158,63 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
     }
   };
 
+  const markLessonAsCompleted = async () => {
+    if (!user) return;
+
+    try {
+      const progressData = {
+        user_id: user.id,
+        lesson_id: lesson.id,
+        completed: true,
+        completed_at: new Date().toISOString(),
+        mcq_score: 0,
+        mcq_total: 0
+      };
+
+      const { error } = await supabase
+        .from('lesson_progress')
+        .upsert([progressData]);
+
+      if (error) throw error;
+      onMarkComplete();
+    } catch (error) {
+      console.error('Error marking lesson as completed:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark lesson as completed.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleMarkComplete = () => {
-    if (!hasPassedQuiz) {
+    // If lesson has MCQs and user hasn't passed yet, show quiz
+    if (hasMcqQuestions && !hasPassedQuiz) {
       setShowQuiz(true);
       return;
     }
 
+    // If lesson has no MCQs or user has passed quiz, proceed to rating or completion
     if (!hasRated) {
       setShowRatingModal(true);
     } else {
-      onMarkComplete();
+      // If no MCQs, mark as completed directly
+      if (!hasMcqQuestions) {
+        markLessonAsCompleted();
+      } else {
+        onMarkComplete();
+      }
     }
   };
 
   const handleRatingSubmitted = () => {
     setHasRated(true);
-    onMarkComplete();
+    // If no MCQs, mark as completed after rating
+    if (!hasMcqQuestions) {
+      markLessonAsCompleted();
+    } else {
+      onMarkComplete();
+    }
   };
 
   // Improved video URL processing for better compatibility
@@ -223,15 +281,15 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
                   onClick={handleMarkComplete}
                   className="bg-green-600 text-white hover:bg-green-700"
                 >
-                  {hasPassedQuiz ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Mark Complete
-                    </>
-                  ) : (
+                  {hasMcqQuestions && !hasPassedQuiz ? (
                     <>
                       <BookOpen className="w-4 h-4 mr-2" />
                       Take Quiz
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Mark Complete
                     </>
                   )}
                 </Button>
@@ -256,6 +314,16 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
                   Quiz Score: {quizScore.score}/{quizScore.total} 
                   ({Math.round((quizScore.score / quizScore.total) * 100)}%)
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* No Quiz Available Message */}
+          {!hasMcqQuestions && (
+            <div className="mb-4 p-3 rounded-lg border border-blue-500 bg-blue-50 text-blue-800">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                <span>No quiz available for this lesson. You can proceed directly.</span>
               </div>
             </div>
           )}
@@ -330,22 +398,24 @@ export const LessonPlayer = ({ lesson, isCompleted, onMarkComplete }: LessonPlay
         <LessonAICompanion lessonText={lesson.text_content || lesson.description || ''} />
       </div>
 
-      {/* MCQ Quiz Dialog */}
-      <AlertDialog open={showQuiz} onOpenChange={setShowQuiz}>
-        <AlertDialogContent className="max-w-4xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Lesson Quiz</AlertDialogTitle>
-            <AlertDialogDescription>
-              You need to score at least 50% to complete this lesson.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <MCQQuiz
-            lessonId={lesson.id}
-            onQuizComplete={handleQuizComplete}
-            onClose={() => setShowQuiz(false)}
-          />
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* MCQ Quiz Dialog - only show if lesson has MCQs */}
+      {hasMcqQuestions && (
+        <AlertDialog open={showQuiz} onOpenChange={setShowQuiz}>
+          <AlertDialogContent className="max-w-4xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Lesson Quiz</AlertDialogTitle>
+              <AlertDialogDescription>
+                You need to score at least 50% to complete this lesson.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <MCQQuiz
+              lessonId={lesson.id}
+              onQuizComplete={handleQuizComplete}
+              onClose={() => setShowQuiz(false)}
+            />
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
       {/* Rating Modal */}
       <RatingModal

@@ -46,89 +46,121 @@ export const RatingModal: React.FC<RatingModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Submit the rating with proper type-safe data structure
+      // Check if user has already rated this item to prevent duplicate points
+      let hasExistingRating = false;
+      
       if (type === 'course') {
+        const { data: existingRating } = await supabase
+          .from('course_ratings')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('course_id', itemId)
+          .maybeSingle();
+        
+        hasExistingRating = !!existingRating;
+        
+        // Submit or update the rating
         const { error: ratingError } = await supabase
           .from('course_ratings')
-          .insert({
+          .upsert({
             user_id: user.id,
             course_id: itemId,
             rating,
             comment: comment.trim() || null,
+          }, {
+            onConflict: 'user_id,course_id'
           });
 
         if (ratingError) throw ratingError;
       } else {
+        const { data: existingRating } = await supabase
+          .from('lesson_ratings')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('lesson_id', itemId)
+          .maybeSingle();
+        
+        hasExistingRating = !!existingRating;
+        
+        // Submit or update the rating
         const { error: ratingError } = await supabase
           .from('lesson_ratings')
-          .insert({
+          .upsert({
             user_id: user.id,
             lesson_id: itemId,
             rating,
             comment: comment.trim() || null,
+          }, {
+            onConflict: 'user_id,lesson_id'
           });
 
         if (ratingError) throw ratingError;
       }
 
-      // Award points for feedback (5 points for ratings)
-      const feedbackPoints = 5;
-      
-      // Update user points
-      const { data: existingPoints } = await supabase
-        .from('user_points')
-        .select('total_points, available_points')
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingPoints) {
-        // Update existing points
-        const { error: updateError } = await supabase
+      // Award points only for NEW ratings (not updates)
+      let pointsAwarded = 0;
+      if (!hasExistingRating) {
+        const feedbackPoints = 5;
+        pointsAwarded = feedbackPoints;
+        
+        // Update user points
+        const { data: existingPoints } = await supabase
           .from('user_points')
-          .update({
-            total_points: existingPoints.total_points + feedbackPoints,
-            available_points: existingPoints.available_points + feedbackPoints,
-          })
-          .eq('user_id', user.id);
+          .select('total_points, available_points')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-        if (updateError) throw updateError;
-      } else {
-        // Insert new points record
-        const { error: insertError } = await supabase
-          .from('user_points')
+        if (existingPoints) {
+          const { error: updateError } = await supabase
+            .from('user_points')
+            .update({
+              total_points: existingPoints.total_points + feedbackPoints,
+              available_points: existingPoints.available_points + feedbackPoints,
+            })
+            .eq('user_id', user.id);
+
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await supabase
+            .from('user_points')
+            .insert({
+              user_id: user.id,
+              total_points: feedbackPoints,
+              available_points: feedbackPoints,
+            });
+
+          if (insertError) throw insertError;
+        }
+
+        // Record the transaction
+        await supabase
+          .from('points_transactions')
           .insert({
             user_id: user.id,
-            total_points: feedbackPoints,
-            available_points: feedbackPoints,
+            points_change: feedbackPoints,
+            transaction_type: 'earned',
+            description: `Feedback points for ${type}: ${itemTitle}`,
           });
-
-        if (insertError) throw insertError;
       }
 
-      // Record the transaction
-      await supabase
-        .from('points_transactions')
-        .insert({
-          user_id: user.id,
-          points_change: feedbackPoints,
-          transaction_type: 'earned',
-          description: `Feedback points for ${type}: ${itemTitle}`,
-        });
-
-      setPointsEarned(feedbackPoints);
+      setPointsEarned(pointsAwarded);
       
       toast({
         title: 'Thank you!',
-        description: 'Your rating has been submitted successfully.',
+        description: hasExistingRating 
+          ? 'Your rating has been updated successfully.' 
+          : 'Your rating has been submitted successfully.',
       });
 
       if (onRatingSubmitted) {
         onRatingSubmitted();
       }
 
-      // Close the rating modal and show points notification
+      // Close the rating modal and show points notification if points were earned
       onClose();
-      setShowPointsNotification(true);
+      if (pointsAwarded > 0) {
+        setShowPointsNotification(true);
+      }
       
       // Reset form
       setRating(0);
@@ -213,12 +245,14 @@ export const RatingModal: React.FC<RatingModalProps> = ({
         </DialogContent>
       </Dialog>
 
-      <PointsNotification
-        isOpen={showPointsNotification}
-        onClose={() => setShowPointsNotification(false)}
-        pointsEarned={pointsEarned}
-        courseName={itemTitle}
-      />
+      {pointsEarned > 0 && (
+        <PointsNotification
+          isOpen={showPointsNotification}
+          onClose={() => setShowPointsNotification(false)}
+          pointsEarned={pointsEarned}
+          courseName={itemTitle}
+        />
+      )}
     </>
   );
 };
